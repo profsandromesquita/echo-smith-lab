@@ -13,7 +13,7 @@ const TITULO = "Privacidade e consentimentos — Copyforja";
 const DESCRICAO =
   "Escolha o modo de privacidade do chat, veja o que já saiu do dispositivo e gerencie exportação e exclusão de dados.";
 
-export const Route = createFileRoute("/config/privacidade")({
+export const Route = createFileRoute("/_authenticated/config/privacidade")({
   head: () => ({
     meta: [
       { title: TITULO },

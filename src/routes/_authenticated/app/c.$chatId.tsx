@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { Workspace } from "@/components/chat/Workspace";
+import { PASTAS } from "@/lib/fixtures";
 
-const TITULO = "Workspace — Copyforja";
+const TITULO = "Chat de criação — Copyforja";
 const DESCRICAO =
-  "Gere hooks, headlines e CTAs com pipeline multi-agente, auditoria com notas e adaptação de estilo no seu dispositivo.";
+  "Histórico do chat, parâmetros da geração e curadoria das melhores variações auditadas.";
 
-export const Route = createFileRoute("/app/")({
+export const Route = createFileRoute("/_authenticated/app/c/$chatId")({
   head: () => ({
     meta: [
       { title: TITULO },
@@ -21,9 +22,13 @@ export const Route = createFileRoute("/app/")({
 });
 
 function Pagina() {
+  const { chatId } = Route.useParams();
+  const chat = PASTAS.flatMap((p) => p.chats).find((c) => c.id === chatId);
+  const titulo = chat?.titulo ?? "Novo chat";
+
   return (
-    <AppShell titulo="Reels sobre procrastinação">
-      <Workspace titulo="Reels sobre procrastinação" marca="Jainara — Psicologia Profunda" />
+    <AppShell titulo={titulo}>
+      <Workspace titulo={titulo} marca={chat?.marca ?? "Padrão"} />
     </AppShell>
   );
 }

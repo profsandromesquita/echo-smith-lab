@@ -13,7 +13,7 @@ const TITULO = "Primeiros passos — voz de marca e IA local";
 const DESCRICAO =
   "Configure sua voz de marca e decida, sem pressa, se quer instalar a IA local para adaptação de estilo no dispositivo.";
 
-export const Route = createFileRoute("/onboarding")({
+export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
     meta: [
       { title: TITULO },

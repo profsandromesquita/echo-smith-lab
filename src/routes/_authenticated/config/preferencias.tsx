@@ -12,7 +12,7 @@ const TITULO = "Preferências de estilo — Copyforja";
 const DESCRICAO =
   "Veja e edite suas regras explícitas e as preferências inferidas a partir de favoritos, edições e descartes.";
 
-export const Route = createFileRoute("/config/preferencias")({
+export const Route = createFileRoute("/_authenticated/config/preferencias")({
   head: () => ({
     meta: [
       { title: TITULO },

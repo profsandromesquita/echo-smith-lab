@@ -1,4 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +14,17 @@ const TITULO = "Entrar na Copyforja";
 const DESCRICAO =
   "Acesse seu workspace de copywriting com pastas por cliente, voz de marca e curadoria auditada.";
 
+/** Só aceitamos caminhos internos como destino pós-login. */
+function destinoSeguro(valor: unknown): string {
+  return typeof valor === "string" && valor.startsWith("/") && !valor.startsWith("//")
+    ? valor
+    : "/app";
+}
+
 export const Route = createFileRoute("/auth")({
+  validateSearch: (busca: Record<string, unknown>) => ({
+    destino: destinoSeguro(busca["destino"]),
+  }),
   head: () => ({
     meta: [
       { title: TITULO },
@@ -24,6 +39,16 @@ export const Route = createFileRoute("/auth")({
 });
 
 function Pagina() {
+  const { destino } = Route.useSearch();
+  const navigate = useNavigate();
+  const { autenticado, carregando } = useAuth();
+
+  useEffect(() => {
+    if (!carregando && autenticado) {
+      void navigate({ to: destino, replace: true });
+    }
+  }, [autenticado, carregando, destino, navigate]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-sm">
@@ -39,45 +64,131 @@ function Pagina() {
           </TabsList>
 
           <TabsContent value="entrar">
-            <Formulario acao="Entrar" />
+            <Formulario modo="entrar" destino={destino} />
           </TabsContent>
           <TabsContent value="criar">
-            <Formulario acao="Criar conta" />
+            <Formulario modo="criar" destino={destino} />
           </TabsContent>
         </Tabs>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Tela de apresentação. A autenticação real entra em uma fase posterior.
-        </p>
       </div>
     </div>
   );
 }
 
-function Formulario({ acao }: { acao: string }) {
+const MENSAGENS: Record<string, string> = {
+  "invalid login credentials": "E-mail ou senha incorretos.",
+  "email not confirmed": "Confirme seu e-mail antes de entrar.",
+  "user already registered": "Já existe uma conta com este e-mail. Use a aba Entrar.",
+  "password should be at least 6 characters": "A senha precisa ter pelo menos 6 caracteres.",
+  "anonymous sign-ins are disabled": "Cadastro indisponível no momento.",
+};
+
+function traduzirErro(mensagem: string): string {
+  const chave = mensagem.trim().toLowerCase();
+  if (MENSAGENS[chave]) return MENSAGENS[chave];
+  if (chave.includes("pwned") || chave.includes("compromised")) {
+    return "Essa senha aparece em vazamentos conhecidos. Escolha outra.";
+  }
+  if (chave.includes("rate limit")) {
+    return "Muitas tentativas seguidas. Aguarde um instante e tente de novo.";
+  }
+  if (chave.includes("password")) return "Senha inválida. Use pelo menos 6 caracteres.";
+  if (chave.includes("email")) return "E-mail inválido ou já cadastrado.";
+  return "Não foi possível concluir. Tente novamente.";
+}
+
+function Formulario({ modo, destino }: { modo: "entrar" | "criar"; destino: string }) {
+  const criando = modo === "criar";
+  const acao = criando ? "Criar conta" : "Entrar";
+  const navigate = useNavigate();
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  async function enviar(evento: React.FormEvent) {
+    evento.preventDefault();
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      if (criando) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password: senha,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth`,
+            data: { nome_exibicao: nome.trim() || email.split("@")[0] },
+          },
+        });
+        if (error) throw error;
+        toast.success("Conta criada. Bem-vindo à Copyforja.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+        if (error) throw error;
+      }
+      await navigate({ to: destino, replace: true });
+    } catch (erro) {
+      toast.error(traduzirErro(erro instanceof Error ? erro.message : ""));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
-    <Card>
+    <form onSubmit={enviar}>
+      <Card>
       <CardHeader>
         <CardTitle className="text-base">{acao}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {criando && (
+          <div className="space-y-1.5">
+            <Label htmlFor="nome-criar">Como quer ser chamado</Label>
+            <Input
+              id="nome-criar"
+              autoComplete="name"
+              placeholder="Jainara"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+          </div>
+        )}
         <div className="space-y-1.5">
-          <Label htmlFor={`email-${acao}`}>E-mail</Label>
-          <Input id={`email-${acao}`} type="email" placeholder="voce@estudio.com.br" />
+          <Label htmlFor={`email-${modo}`}>E-mail</Label>
+          <Input
+            id={`email-${modo}`}
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="voce@estudio.com.br"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`senha-${acao}`}>Senha</Label>
-          <Input id={`senha-${acao}`} type="password" placeholder="••••••••" />
+          <Label htmlFor={`senha-${modo}`}>Senha</Label>
+          <Input
+            id={`senha-${modo}`}
+            type="password"
+            required
+            minLength={6}
+            autoComplete={criando ? "new-password" : "current-password"}
+            placeholder="••••••••"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+          />
+          {criando && (
+            <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres.</p>
+          )}
         </div>
       </CardContent>
-      <CardFooter className="flex-col gap-2">
-        <Button asChild className="w-full">
-          <Link to="/app">{acao}</Link>
-        </Button>
-        <Button asChild variant="ghost" size="sm" className="w-full">
-          <Link to="/onboarding">Configurar voz de marca primeiro</Link>
+      <CardFooter>
+        <Button type="submit" className="w-full" disabled={enviando}>
+          {enviando && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          {acao}
         </Button>
       </CardFooter>
-    </Card>
+      </Card>
+    </form>
   );
 }

@@ -10,7 +10,7 @@ const TITULO = "Vozes de marca — Copyforja";
 const DESCRICAO =
   "Gerencie vários perfis de voz de marca por cliente, com perfil padrão, vínculo por pasta e sobreposição por chat.";
 
-export const Route = createFileRoute("/config/voz-de-marca")({
+export const Route = createFileRoute("/_authenticated/config/voz-de-marca")({
   head: () => ({
     meta: [
       { title: TITULO },
