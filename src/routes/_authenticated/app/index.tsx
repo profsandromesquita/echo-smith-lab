@@ -6,7 +6,7 @@ const TITULO = "Workspace — Copyforja";
 const DESCRICAO =
   "Gere hooks, headlines e CTAs com pipeline multi-agente, auditoria com notas e adaptação de estilo no seu dispositivo.";
 
-export const Route = createFileRoute("/app/")({
+export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
     meta: [
       { title: TITULO },

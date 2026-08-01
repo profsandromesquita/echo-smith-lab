@@ -14,7 +14,7 @@ const TITULO = "IA local — Copyforja";
 const DESCRICAO =
   "Instale, acompanhe ou remova o modelo local que adapta o estilo dos textos dentro do seu navegador.";
 
-export const Route = createFileRoute("/config/ia-local")({
+export const Route = createFileRoute("/_authenticated/config/ia-local")({
   head: () => ({
     meta: [
       { title: TITULO },

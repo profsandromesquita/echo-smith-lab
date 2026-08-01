@@ -7,7 +7,7 @@ const TITULO = "Chat de criação — Copyforja";
 const DESCRICAO =
   "Histórico do chat, parâmetros da geração e curadoria das melhores variações auditadas.";
 
-export const Route = createFileRoute("/app/c/$chatId")({
+export const Route = createFileRoute("/_authenticated/app/c/$chatId")({
   head: () => ({
     meta: [
       { title: TITULO },

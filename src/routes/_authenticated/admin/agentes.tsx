@@ -17,7 +17,7 @@ const TITULO = "Registry de agentes — Copyforja";
 const DESCRICAO =
   "Visão administrativa dos papéis de agente, modelos configurados, versão publicada, rascunhos e histórico.";
 
-export const Route = createFileRoute("/admin/agentes")({
+export const Route = createFileRoute("/_authenticated/admin/agentes")({
   head: () => ({
     meta: [
       { title: TITULO },

@@ -11,14 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as AdminAgentesRouteImport } from './routes/admin/agentes'
-import { Route as AppIndexRouteImport } from './routes/app/index'
-import { Route as ConfigIaLocalRouteImport } from './routes/config/ia-local'
-import { Route as ConfigPreferenciasRouteImport } from './routes/config/preferencias'
-import { Route as ConfigPrivacidadeRouteImport } from './routes/config/privacidade'
-import { Route as ConfigVozDeMarcaRouteImport } from './routes/config/voz-de-marca'
-import { Route as AppCChatIdRouteImport } from './routes/app/c.$chatId'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AuthenticatedAdminAgentesRouteImport } from './routes/_authenticated/admin/agentes'
+import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedConfigIaLocalRouteImport } from './routes/_authenticated/config/ia-local'
+import { Route as AuthenticatedConfigPreferenciasRouteImport } from './routes/_authenticated/config/preferencias'
+import { Route as AuthenticatedConfigPrivacidadeRouteImport } from './routes/_authenticated/config/privacidade'
+import { Route as AuthenticatedConfigVozDeMarcaRouteImport } from './routes/_authenticated/config/voz-de-marca'
+import { Route as AuthenticatedAppCChatIdRouteImport } from './routes/_authenticated/app/c.$chatId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,43 +30,48 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/_authenticated/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminAgentesRoute = AdminAgentesRouteImport.update({
-  id: '/admin/agentes',
-  path: '/admin/agentes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/app/',
+const AuthenticatedAdminAgentesRoute =
+  AuthenticatedAdminAgentesRouteImport.update({
+    id: '/_authenticated/admin/agentes',
+    path: '/admin/agentes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
+  id: '/_authenticated/app/',
   path: '/app/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConfigIaLocalRoute = ConfigIaLocalRouteImport.update({
-  id: '/config/ia-local',
-  path: '/config/ia-local',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfigPreferenciasRoute = ConfigPreferenciasRouteImport.update({
-  id: '/config/preferencias',
-  path: '/config/preferencias',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfigPrivacidadeRoute = ConfigPrivacidadeRouteImport.update({
-  id: '/config/privacidade',
-  path: '/config/privacidade',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfigVozDeMarcaRoute = ConfigVozDeMarcaRouteImport.update({
-  id: '/config/voz-de-marca',
-  path: '/config/voz-de-marca',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppCChatIdRoute = AppCChatIdRouteImport.update({
-  id: '/app/c/$chatId',
+const AuthenticatedConfigIaLocalRoute =
+  AuthenticatedConfigIaLocalRouteImport.update({
+    id: '/_authenticated/config/ia-local',
+    path: '/config/ia-local',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedConfigPreferenciasRoute =
+  AuthenticatedConfigPreferenciasRouteImport.update({
+    id: '/_authenticated/config/preferencias',
+    path: '/config/preferencias',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedConfigPrivacidadeRoute =
+  AuthenticatedConfigPrivacidadeRouteImport.update({
+    id: '/_authenticated/config/privacidade',
+    path: '/config/privacidade',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedConfigVozDeMarcaRoute =
+  AuthenticatedConfigVozDeMarcaRouteImport.update({
+    id: '/_authenticated/config/voz-de-marca',
+    path: '/config/voz-de-marca',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAppCChatIdRoute = AuthenticatedAppCChatIdRouteImport.update({
+  id: '/_authenticated/app/c/$chatId',
   path: '/app/c/$chatId',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -74,39 +79,39 @@ const AppCChatIdRoute = AppCChatIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/onboarding': typeof OnboardingRoute
-  '/admin/agentes': typeof AdminAgentesRoute
-  '/config/ia-local': typeof ConfigIaLocalRoute
-  '/config/preferencias': typeof ConfigPreferenciasRoute
-  '/config/privacidade': typeof ConfigPrivacidadeRoute
-  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
-  '/app/': typeof AppIndexRoute
-  '/app/c/$chatId': typeof AppCChatIdRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/admin/agentes': typeof AuthenticatedAdminAgentesRoute
+  '/config/ia-local': typeof AuthenticatedConfigIaLocalRoute
+  '/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
+  '/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
+  '/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/app/': typeof AuthenticatedAppIndexRoute
+  '/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/onboarding': typeof OnboardingRoute
-  '/admin/agentes': typeof AdminAgentesRoute
-  '/config/ia-local': typeof ConfigIaLocalRoute
-  '/config/preferencias': typeof ConfigPreferenciasRoute
-  '/config/privacidade': typeof ConfigPrivacidadeRoute
-  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
-  '/app': typeof AppIndexRoute
-  '/app/c/$chatId': typeof AppCChatIdRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/admin/agentes': typeof AuthenticatedAdminAgentesRoute
+  '/config/ia-local': typeof AuthenticatedConfigIaLocalRoute
+  '/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
+  '/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
+  '/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/app': typeof AuthenticatedAppIndexRoute
+  '/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/onboarding': typeof OnboardingRoute
-  '/admin/agentes': typeof AdminAgentesRoute
-  '/config/ia-local': typeof ConfigIaLocalRoute
-  '/config/preferencias': typeof ConfigPreferenciasRoute
-  '/config/privacidade': typeof ConfigPrivacidadeRoute
-  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
-  '/app/': typeof AppIndexRoute
-  '/app/c/$chatId': typeof AppCChatIdRoute
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/admin/agentes': typeof AuthenticatedAdminAgentesRoute
+  '/_authenticated/config/ia-local': typeof AuthenticatedConfigIaLocalRoute
+  '/_authenticated/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
+  '/_authenticated/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
+  '/_authenticated/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,27 +142,27 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
-    | '/onboarding'
-    | '/admin/agentes'
-    | '/config/ia-local'
-    | '/config/preferencias'
-    | '/config/privacidade'
-    | '/config/voz-de-marca'
-    | '/app/'
-    | '/app/c/$chatId'
+    | '/_authenticated/onboarding'
+    | '/_authenticated/admin/agentes'
+    | '/_authenticated/config/ia-local'
+    | '/_authenticated/config/preferencias'
+    | '/_authenticated/config/privacidade'
+    | '/_authenticated/config/voz-de-marca'
+    | '/_authenticated/app/'
+    | '/_authenticated/app/c/$chatId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
-  OnboardingRoute: typeof OnboardingRoute
-  AdminAgentesRoute: typeof AdminAgentesRoute
-  ConfigIaLocalRoute: typeof ConfigIaLocalRoute
-  ConfigPreferenciasRoute: typeof ConfigPreferenciasRoute
-  ConfigPrivacidadeRoute: typeof ConfigPrivacidadeRoute
-  ConfigVozDeMarcaRoute: typeof ConfigVozDeMarcaRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppCChatIdRoute: typeof AppCChatIdRoute
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedAdminAgentesRoute: typeof AuthenticatedAdminAgentesRoute
+  AuthenticatedConfigIaLocalRoute: typeof AuthenticatedConfigIaLocalRoute
+  AuthenticatedConfigPreferenciasRoute: typeof AuthenticatedConfigPreferenciasRoute
+  AuthenticatedConfigPrivacidadeRoute: typeof AuthenticatedConfigPrivacidadeRoute
+  AuthenticatedConfigVozDeMarcaRoute: typeof AuthenticatedConfigVozDeMarcaRoute
+  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppCChatIdRoute: typeof AuthenticatedAppCChatIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,60 +181,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/onboarding': {
-      id: '/onboarding'
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/agentes': {
-      id: '/admin/agentes'
+    '/_authenticated/admin/agentes': {
+      id: '/_authenticated/admin/agentes'
       path: '/admin/agentes'
       fullPath: '/admin/agentes'
-      preLoaderRoute: typeof AdminAgentesRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminAgentesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/': {
-      id: '/app/'
+    '/_authenticated/app/': {
+      id: '/_authenticated/app/'
       path: '/app'
       fullPath: '/app/'
-      preLoaderRoute: typeof AppIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config/ia-local': {
-      id: '/config/ia-local'
+    '/_authenticated/config/ia-local': {
+      id: '/_authenticated/config/ia-local'
       path: '/config/ia-local'
       fullPath: '/config/ia-local'
-      preLoaderRoute: typeof ConfigIaLocalRouteImport
+      preLoaderRoute: typeof AuthenticatedConfigIaLocalRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config/preferencias': {
-      id: '/config/preferencias'
+    '/_authenticated/config/preferencias': {
+      id: '/_authenticated/config/preferencias'
       path: '/config/preferencias'
       fullPath: '/config/preferencias'
-      preLoaderRoute: typeof ConfigPreferenciasRouteImport
+      preLoaderRoute: typeof AuthenticatedConfigPreferenciasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config/privacidade': {
-      id: '/config/privacidade'
+    '/_authenticated/config/privacidade': {
+      id: '/_authenticated/config/privacidade'
       path: '/config/privacidade'
       fullPath: '/config/privacidade'
-      preLoaderRoute: typeof ConfigPrivacidadeRouteImport
+      preLoaderRoute: typeof AuthenticatedConfigPrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config/voz-de-marca': {
-      id: '/config/voz-de-marca'
+    '/_authenticated/config/voz-de-marca': {
+      id: '/_authenticated/config/voz-de-marca'
       path: '/config/voz-de-marca'
       fullPath: '/config/voz-de-marca'
-      preLoaderRoute: typeof ConfigVozDeMarcaRouteImport
+      preLoaderRoute: typeof AuthenticatedConfigVozDeMarcaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/c/$chatId': {
-      id: '/app/c/$chatId'
+    '/_authenticated/app/c/$chatId': {
+      id: '/_authenticated/app/c/$chatId'
       path: '/app/c/$chatId'
       fullPath: '/app/c/$chatId'
-      preLoaderRoute: typeof AppCChatIdRouteImport
+      preLoaderRoute: typeof AuthenticatedAppCChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -238,14 +243,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
-  OnboardingRoute: OnboardingRoute,
-  AdminAgentesRoute: AdminAgentesRoute,
-  ConfigIaLocalRoute: ConfigIaLocalRoute,
-  ConfigPreferenciasRoute: ConfigPreferenciasRoute,
-  ConfigPrivacidadeRoute: ConfigPrivacidadeRoute,
-  ConfigVozDeMarcaRoute: ConfigVozDeMarcaRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppCChatIdRoute: AppCChatIdRoute,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedAdminAgentesRoute: AuthenticatedAdminAgentesRoute,
+  AuthenticatedConfigIaLocalRoute: AuthenticatedConfigIaLocalRoute,
+  AuthenticatedConfigPreferenciasRoute: AuthenticatedConfigPreferenciasRoute,
+  AuthenticatedConfigPrivacidadeRoute: AuthenticatedConfigPrivacidadeRoute,
+  AuthenticatedConfigVozDeMarcaRoute: AuthenticatedConfigVozDeMarcaRoute,
+  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppCChatIdRoute: AuthenticatedAppCChatIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
