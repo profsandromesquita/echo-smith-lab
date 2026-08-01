@@ -135,8 +135,8 @@ function Formulario({ modo, destino }: { modo: "entrar" | "criar"; destino: stri
   }
 
   return (
-    <Card asChild>
-      <form onSubmit={enviar}>
+    <form onSubmit={enviar}>
+      <Card>
       <CardHeader>
         <CardTitle className="text-base">{acao}</CardTitle>
       </CardHeader>
@@ -188,7 +188,7 @@ function Formulario({ modo, destino }: { modo: "entrar" | "criar"; destino: stri
           {acao}
         </Button>
       </CardFooter>
-      </form>
-    </Card>
+      </Card>
+    </form>
   );
 }
