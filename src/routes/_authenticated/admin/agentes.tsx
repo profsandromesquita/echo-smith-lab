@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,17 @@ import {
 } from "@/components/ui/table";
 import { CascaSimples } from "@/components/layout/CascaSimples";
 import { REGISTRY } from "@/lib/fixtures";
+import { verificarAdmin } from "@/lib/conta.functions";
 
 const TITULO = "Registry de agentes — Copyforja";
 const DESCRICAO =
   "Visão administrativa dos papéis de agente, modelos configurados, versão publicada, rascunhos e histórico.";
 
 export const Route = createFileRoute("/_authenticated/admin/agentes")({
+  beforeLoad: async () => {
+    const { ehAdmin } = await verificarAdmin();
+    if (!ehAdmin) throw redirect({ to: "/app" });
+  },
   head: () => ({
     meta: [
       { title: TITULO },

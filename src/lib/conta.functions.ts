@@ -1,3 +1,14 @@
+
+/** Verificação de papel administrativo feita no servidor. */
+export const verificarAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin_tecnico",
+    });
+    return { ehAdmin: Boolean(data) };
+  });
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
