@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { PainelPastas } from "@/components/layout/PainelPastas";
 import { PainelParametros } from "@/components/layout/PainelParametros";
 import { ControleDemo } from "@/components/dev/ControleDemo";
+import { MenuConta } from "@/components/layout/MenuConta";
 import { SeloIaLocal } from "@/components/privacy/Indicadores";
 import { DemoProvider } from "@/lib/demo-state";
 
@@ -42,6 +43,7 @@ export function AppShell({ titulo, children }: { titulo: string; children: React
                 <Settings className="size-5" aria-hidden />
               </Link>
             </Button>
+            <MenuConta />
             <Sheet>
               <SheetTrigger asChild>
                 <Button size="icon" variant="ghost" className="xl:hidden" aria-label="Abrir parâmetros">
