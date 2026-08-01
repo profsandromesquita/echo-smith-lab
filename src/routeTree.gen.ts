@@ -10,33 +10,154 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as AdminAgentesRouteImport } from './routes/admin/agentes'
+import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as ConfigIaLocalRouteImport } from './routes/config/ia-local'
+import { Route as ConfigPreferenciasRouteImport } from './routes/config/preferencias'
+import { Route as ConfigPrivacidadeRouteImport } from './routes/config/privacidade'
+import { Route as ConfigVozDeMarcaRouteImport } from './routes/config/voz-de-marca'
+import { Route as AppCChatIdRouteImport } from './routes/app/c.$chatId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAgentesRoute = AdminAgentesRouteImport.update({
+  id: '/admin/agentes',
+  path: '/admin/agentes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/app/',
+  path: '/app/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigIaLocalRoute = ConfigIaLocalRouteImport.update({
+  id: '/config/ia-local',
+  path: '/config/ia-local',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigPreferenciasRoute = ConfigPreferenciasRouteImport.update({
+  id: '/config/preferencias',
+  path: '/config/preferencias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigPrivacidadeRoute = ConfigPrivacidadeRouteImport.update({
+  id: '/config/privacidade',
+  path: '/config/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigVozDeMarcaRoute = ConfigVozDeMarcaRouteImport.update({
+  id: '/config/voz-de-marca',
+  path: '/config/voz-de-marca',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppCChatIdRoute = AppCChatIdRouteImport.update({
+  id: '/app/c/$chatId',
+  path: '/app/c/$chatId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/admin/agentes': typeof AdminAgentesRoute
+  '/config/ia-local': typeof ConfigIaLocalRoute
+  '/config/preferencias': typeof ConfigPreferenciasRoute
+  '/config/privacidade': typeof ConfigPrivacidadeRoute
+  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
+  '/app/': typeof AppIndexRoute
+  '/app/c/$chatId': typeof AppCChatIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/admin/agentes': typeof AdminAgentesRoute
+  '/config/ia-local': typeof ConfigIaLocalRoute
+  '/config/preferencias': typeof ConfigPreferenciasRoute
+  '/config/privacidade': typeof ConfigPrivacidadeRoute
+  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
+  '/app': typeof AppIndexRoute
+  '/app/c/$chatId': typeof AppCChatIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/admin/agentes': typeof AdminAgentesRoute
+  '/config/ia-local': typeof ConfigIaLocalRoute
+  '/config/preferencias': typeof ConfigPreferenciasRoute
+  '/config/privacidade': typeof ConfigPrivacidadeRoute
+  '/config/voz-de-marca': typeof ConfigVozDeMarcaRoute
+  '/app/': typeof AppIndexRoute
+  '/app/c/$chatId': typeof AppCChatIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/onboarding'
+    | '/admin/agentes'
+    | '/config/ia-local'
+    | '/config/preferencias'
+    | '/config/privacidade'
+    | '/config/voz-de-marca'
+    | '/app/'
+    | '/app/c/$chatId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/onboarding'
+    | '/admin/agentes'
+    | '/config/ia-local'
+    | '/config/preferencias'
+    | '/config/privacidade'
+    | '/config/voz-de-marca'
+    | '/app'
+    | '/app/c/$chatId'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/onboarding'
+    | '/admin/agentes'
+    | '/config/ia-local'
+    | '/config/preferencias'
+    | '/config/privacidade'
+    | '/config/voz-de-marca'
+    | '/app/'
+    | '/app/c/$chatId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  OnboardingRoute: typeof OnboardingRoute
+  AdminAgentesRoute: typeof AdminAgentesRoute
+  ConfigIaLocalRoute: typeof ConfigIaLocalRoute
+  ConfigPreferenciasRoute: typeof ConfigPreferenciasRoute
+  ConfigPrivacidadeRoute: typeof ConfigPrivacidadeRoute
+  ConfigVozDeMarcaRoute: typeof ConfigVozDeMarcaRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppCChatIdRoute: typeof AppCChatIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +169,84 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/agentes': {
+      id: '/admin/agentes'
+      path: '/admin/agentes'
+      fullPath: '/admin/agentes'
+      preLoaderRoute: typeof AdminAgentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/ia-local': {
+      id: '/config/ia-local'
+      path: '/config/ia-local'
+      fullPath: '/config/ia-local'
+      preLoaderRoute: typeof ConfigIaLocalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/preferencias': {
+      id: '/config/preferencias'
+      path: '/config/preferencias'
+      fullPath: '/config/preferencias'
+      preLoaderRoute: typeof ConfigPreferenciasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/privacidade': {
+      id: '/config/privacidade'
+      path: '/config/privacidade'
+      fullPath: '/config/privacidade'
+      preLoaderRoute: typeof ConfigPrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/voz-de-marca': {
+      id: '/config/voz-de-marca'
+      path: '/config/voz-de-marca'
+      fullPath: '/config/voz-de-marca'
+      preLoaderRoute: typeof ConfigVozDeMarcaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/c/$chatId': {
+      id: '/app/c/$chatId'
+      path: '/app/c/$chatId'
+      fullPath: '/app/c/$chatId'
+      preLoaderRoute: typeof AppCChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  OnboardingRoute: OnboardingRoute,
+  AdminAgentesRoute: AdminAgentesRoute,
+  ConfigIaLocalRoute: ConfigIaLocalRoute,
+  ConfigPreferenciasRoute: ConfigPreferenciasRoute,
+  ConfigPrivacidadeRoute: ConfigPrivacidadeRoute,
+  ConfigVozDeMarcaRoute: ConfigVozDeMarcaRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppCChatIdRoute: AppCChatIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
