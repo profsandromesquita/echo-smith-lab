@@ -232,38 +232,6 @@ export const SINAIS_RANKING = [
 export const RESPOSTA_SIMULADA =
   "Briefing suficiente. Conflito inconsciente identificado: medo do julgamento disfarçado de falta de tempo. Diretriz compartilhada com os especialistas.";
 
-export interface PerfilMarca {
-  id: string;
-  nome: string;
-  padrao: boolean;
-  pastasVinculadas: number;
-  dicionario: string[];
-  proibidas: string[];
-  posicionamento: string;
-}
-
-export const PERFIS_MARCA: PerfilMarca[] = [
-  {
-    id: "b1",
-    nome: "Jainara — Psicologia Profunda",
-    padrao: true,
-    pastasVinculadas: 2,
-    dicionario: ["conflito", "sombra", "travessia", "nomear"],
-    proibidas: ["hack", "segredo definitivo", "método infalível", "mindset"],
-    posicionamento:
-      "Fala adulta, sem promessa de cura rápida. Nomeia a dor antes de oferecer caminho.",
-  },
-  {
-    id: "b2",
-    nome: "Instituto Vértice",
-    padrao: false,
-    pastasVinculadas: 1,
-    dicionario: ["evidência", "processo", "prática clínica"],
-    proibidas: ["milagre", "gatilho mental"],
-    posicionamento: "Autoridade técnica, tom institucional, zero sensacionalismo.",
-  },
-];
-
 export interface PreferenciaItem {
   id: string;
   regra: string;

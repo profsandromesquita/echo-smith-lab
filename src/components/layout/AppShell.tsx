@@ -10,7 +10,16 @@ import { MenuConta } from "@/components/layout/MenuConta";
 import { SeloIaLocal } from "@/components/privacy/Indicadores";
 import { DemoProvider } from "@/lib/demo-state";
 
-export function AppShell({ titulo, children }: { titulo: string; children: ReactNode }) {
+export function AppShell({
+  titulo,
+  chatId = null,
+  children,
+}: {
+  titulo: string;
+  /** Chat atual, usado para resolver a voz de marca ativa. */
+  chatId?: string | null;
+  children: ReactNode;
+}) {
   return (
     <DemoProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -54,7 +63,7 @@ export function AppShell({ titulo, children }: { titulo: string; children: React
                 <SheetHeader className="p-0 pb-3">
                   <SheetTitle>Parâmetros da geração</SheetTitle>
                 </SheetHeader>
-                <PainelParametros />
+                <PainelParametros chatId={chatId} />
               </SheetContent>
             </Sheet>
           </div>
@@ -68,7 +77,7 @@ export function AppShell({ titulo, children }: { titulo: string; children: React
           <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
 
           <aside className="hidden w-80 shrink-0 border-l bg-sidebar p-3 xl:block">
-            <PainelParametros />
+            <PainelParametros chatId={chatId} />
           </aside>
         </div>
 

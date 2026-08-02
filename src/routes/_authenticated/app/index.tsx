@@ -51,7 +51,6 @@ function Pagina() {
     <AppShell titulo="Novo chat">
       <Workspace
         titulo="Novo chat"
-        marca="Padrão"
         mensagens={[]}
         enviando={criacao.isPending}
         onEnviar={(texto) => criacao.mutate(texto)}

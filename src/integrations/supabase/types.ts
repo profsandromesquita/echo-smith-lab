@@ -20,6 +20,7 @@ export type Database = {
           criado_em: string
           id: string
           pasta_id: string | null
+          perfil_marca_id: string | null
           titulo: string
           ultima_atividade_em: string
           user_id: string
@@ -29,6 +30,7 @@ export type Database = {
           criado_em?: string
           id?: string
           pasta_id?: string | null
+          perfil_marca_id?: string | null
           titulo?: string
           ultima_atividade_em?: string
           user_id?: string
@@ -38,6 +40,7 @@ export type Database = {
           criado_em?: string
           id?: string
           pasta_id?: string | null
+          perfil_marca_id?: string | null
           titulo?: string
           ultima_atividade_em?: string
           user_id?: string
@@ -48,6 +51,51 @@ export type Database = {
             columns: ["pasta_id"]
             isOneToOne: false
             referencedRelation: "pastas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chats_perfil_marca_id_fkey"
+            columns: ["perfil_marca_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exemplos_marca: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: string
+          perfil_id: string
+          texto: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          perfil_id: string
+          texto: string
+          titulo?: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          perfil_id?: string
+          texto?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exemplos_marca_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_marca"
             referencedColumns: ["id"]
           },
         ]
@@ -93,6 +141,7 @@ export type Database = {
           criado_em: string
           id: string
           nome: string
+          perfil_marca_id: string | null
           user_id: string
         }
         Insert: {
@@ -100,6 +149,7 @@ export type Database = {
           criado_em?: string
           id?: string
           nome: string
+          perfil_marca_id?: string | null
           user_id?: string
         }
         Update: {
@@ -107,6 +157,69 @@ export type Database = {
           criado_em?: string
           id?: string
           nome?: string
+          perfil_marca_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pastas_perfil_marca_id_fkey"
+            columns: ["perfil_marca_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perfis_marca: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          descricao: string
+          evitadas: string[]
+          id: string
+          nome: string
+          orientacoes: string
+          padrao: boolean
+          personalidade: string
+          posicionamento: string
+          preferidas: string[]
+          principios: string
+          publico: string
+          tom_de_voz: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string
+          evitadas?: string[]
+          id?: string
+          nome: string
+          orientacoes?: string
+          padrao?: boolean
+          personalidade?: string
+          posicionamento?: string
+          preferidas?: string[]
+          principios?: string
+          publico?: string
+          tom_de_voz?: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string
+          evitadas?: string[]
+          id?: string
+          nome?: string
+          orientacoes?: string
+          padrao?: boolean
+          personalidade?: string
+          posicionamento?: string
+          preferidas?: string[]
+          principios?: string
+          publico?: string
+          tom_de_voz?: string
           user_id?: string
         }
         Relationships: []
@@ -164,6 +277,10 @@ export type Database = {
         Returns: boolean
       }
       pasta_e_minha: { Args: { _pasta_id: string }; Returns: boolean }
+      perfil_e_meu: {
+        Args: { _perfil_id: string; _user_id: string }
+        Returns: boolean
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       tem_papel: {

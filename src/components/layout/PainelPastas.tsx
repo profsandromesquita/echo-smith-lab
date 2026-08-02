@@ -52,10 +52,13 @@ import {
   renomearPasta,
 } from "@/lib/historico.functions";
 import { chavesHistorico, opcoesArvore, opcoesBusca, quando } from "@/lib/historico";
+import { SeletorPerfil } from "@/components/marca/SeletorPerfil";
+import { chavesMarca } from "@/lib/marca";
+import { definirPerfilPasta } from "@/lib/marca.functions";
 import { cn } from "@/lib/utils";
 
 type ChatItem = { id: string; titulo: string; pasta_id: string | null; ultima_atividade_em: string };
-type PastaItem = { id: string; nome: string; criado_em: string };
+type PastaItem = { id: string; nome: string; criado_em: string; perfil_marca_id: string | null };
 
 type DialogoTexto =
   | { tipo: "nova_pasta" }
@@ -77,6 +80,8 @@ export function PainelPastas() {
   const [dialogo, setDialogo] = useState<DialogoTexto>(null);
   const [valorDialogo, setValorDialogo] = useState("");
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
+  const [vozPasta, setVozPasta] = useState<PastaItem | null>(null);
+  const [perfilPasta, setPerfilPasta] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setTermoAtrasado(termo.trim()), 300);
@@ -118,6 +123,18 @@ export function PainelPastas() {
     onSuccess: () => {
       atualizar();
       toast.success("Pasta excluída. Os chats foram mantidos sem pasta.");
+    },
+    onError: aoFalhar,
+  });
+
+  const mVozPasta = useMutation({
+    mutationFn: (v: { pastaId: string; perfilId: string | null }) =>
+      definirPerfilPasta({ data: v }),
+    onSuccess: () => {
+      atualizar();
+      void cliente.invalidateQueries({ queryKey: chavesMarca.raiz });
+      setVozPasta(null);
+      toast.success("Voz de marca da pasta atualizada.");
     },
     onError: aoFalhar,
   });
@@ -354,6 +371,14 @@ export function PainelPastas() {
                         >
                           Renomear pasta
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setVozPasta(pasta);
+                            setPerfilPasta(pasta.perfil_marca_id);
+                          }}
+                        >
+                          Voz de marca da pasta
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
@@ -429,6 +454,35 @@ export function PainelPastas() {
               Cancelar
             </Button>
             <Button onClick={confirmarDialogo} disabled={!valorDialogo.trim()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={vozPasta !== null} onOpenChange={(aberto) => !aberto && setVozPasta(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Voz de marca da pasta</DialogTitle>
+            <DialogDescription>
+              Os chats desta pasta herdam este perfil, a menos que definam outro.
+            </DialogDescription>
+          </DialogHeader>
+          <SeletorPerfil
+            valor={perfilPasta}
+            aoMudar={setPerfilPasta}
+            rotuloVazio="Usar o perfil padrão da conta"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setVozPasta(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={mVozPasta.isPending}
+              onClick={() =>
+                vozPasta && mVozPasta.mutate({ pastaId: vozPasta.id, perfilId: perfilPasta })
+              }
+            >
               Salvar
             </Button>
           </DialogFooter>

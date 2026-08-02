@@ -22,14 +22,15 @@ const STATUS_PRINCIPAL: Record<EstadoDemo, string> = {
 
 export function Workspace({
   titulo,
-  marca,
+  chatId = null,
   mensagens,
   onEnviar,
   enviando = false,
   carregando = false,
 }: {
   titulo: string;
-  marca: string;
+  /** Chat atual. Sem valor, a voz de marca resolvida é a padrão da conta. */
+  chatId?: string | null;
   mensagens: MensagemChat[];
   onEnviar: (texto: string) => void | Promise<void>;
   enviando?: boolean;
@@ -47,7 +48,7 @@ export function Workspace({
             {status}
           </Badge>
         </div>
-        <ResumoContexto marca={marca} />
+        <ResumoContexto chatId={chatId} />
       </div>
 
       {carregando ? (

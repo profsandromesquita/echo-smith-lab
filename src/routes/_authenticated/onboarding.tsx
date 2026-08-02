@@ -1,4 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import { CascaSimples } from "@/components/layout/CascaSimples";
 import { PaginaConfig } from "@/components/layout/AppShell";
+import { chavesMarca, paraLista } from "@/lib/marca";
+import { criarPerfil } from "@/lib/marca.functions";
 
 const TITULO = "Primeiros passos — voz de marca e IA local";
 const DESCRICAO =
@@ -28,6 +33,38 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 });
 
 function Pagina() {
+  const cliente = useQueryClient();
+  const navegar = useNavigate();
+  const [nome, setNome] = useState("");
+  const [posicionamento, setPosicionamento] = useState("");
+  const [evitadas, setEvitadas] = useState("");
+
+  const salvar = useMutation({
+    mutationFn: () =>
+      criarPerfil({
+        data: {
+          nome: nome.trim(),
+          descricao: "",
+          publico: "",
+          posicionamento: posicionamento.trim(),
+          personalidade: "",
+          tom_de_voz: "",
+          preferidas: [],
+          evitadas: paraLista(evitadas),
+          principios: "",
+          orientacoes: "",
+          padrao: true,
+        },
+      }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: chavesMarca.raiz });
+      toast.success("Perfil de voz de marca criado como padrão.");
+      void navegar({ to: "/app" });
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Não foi possível criar o perfil."),
+  });
+
   return (
     <CascaSimples>
       <PaginaConfig
@@ -41,19 +78,44 @@ function Pagina() {
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="nome-marca">Nome do perfil</Label>
-              <Input id="nome-marca" placeholder="Ex.: Clínica Jainara" />
+              <Input
+                id="nome-marca"
+                value={nome}
+                maxLength={80}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Ex.: Clínica Jainara"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="posicionamento">Posicionamento e limites éticos</Label>
               <Textarea
                 id="posicionamento"
                 rows={3}
+                maxLength={1000}
+                value={posicionamento}
+                onChange={(e) => setPosicionamento(e.target.value)}
                 placeholder="Fala adulta, sem promessa de cura rápida. Nomeia a dor antes de oferecer caminho."
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="proibidas">Palavras proibidas</Label>
-              <Input id="proibidas" placeholder="mindset, segredo definitivo, método infalível" />
+              <Input
+                id="proibidas"
+                value={evitadas}
+                onChange={(e) => setEvitadas(e.target.value)}
+                placeholder="mindset, segredo definitivo, método infalível"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={!nome.trim() || salvar.isPending}
+                onClick={() => salvar.mutate()}
+              >
+                Salvar e continuar
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link to="/config/voz-de-marca">Gerenciar perfis</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -86,7 +148,7 @@ function Pagina() {
           </CardContent>
         </Card>
 
-        <Button asChild size="lg">
+        <Button asChild size="lg" variant="outline">
           <Link to="/app">Ir para o workspace</Link>
         </Button>
       </PaginaConfig>
