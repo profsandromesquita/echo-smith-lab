@@ -225,86 +225,12 @@ export const SINAIS_RANKING = [
   { nome: "Confiança da avaliação", peso: 0.08, valor: 8.0 },
 ];
 
-export interface ChatResumo {
-  id: string;
-  titulo: string;
-  atualizadoEm: string;
-  marca: string;
-}
-
-export interface PastaResumo {
-  id: string;
-  nome: string;
-  marcaVinculada: string;
-  chats: ChatResumo[];
-}
-
-export const PASTAS: PastaResumo[] = [
-  {
-    id: "p1",
-    nome: "Clínica Jainara",
-    marcaVinculada: "Jainara — Psicologia Profunda",
-    chats: [
-      {
-        id: "c1",
-        titulo: "Reels sobre procrastinação",
-        atualizadoEm: "hoje, 14h20",
-        marca: "Jainara — Psicologia Profunda",
-      },
-      {
-        id: "c2",
-        titulo: "Carrossel sobre culpa materna",
-        atualizadoEm: "ontem",
-        marca: "Jainara — Psicologia Profunda",
-      },
-    ],
-  },
-  {
-    id: "p2",
-    nome: "Campanha Setembro",
-    marcaVinculada: "Instituto Vértice",
-    chats: [
-      {
-        id: "c3",
-        titulo: "Hooks de abertura para lives",
-        atualizadoEm: "2 dias atrás",
-        marca: "Instituto Vértice",
-      },
-    ],
-  },
-  {
-    id: "p3",
-    nome: "Rascunhos pessoais",
-    marcaVinculada: "Sem marca vinculada",
-    chats: [
-      { id: "c4", titulo: "Testes de CTA", atualizadoEm: "semana passada", marca: "Padrão" },
-    ],
-  },
-];
-
-export interface MensagemChat {
-  id: string;
-  autor: "usuario" | "plataforma";
-  texto: string;
-  horario: string;
-}
-
-export const MENSAGENS: MensagemChat[] = [
-  {
-    id: "m1",
-    autor: "usuario",
-    texto:
-      "Preciso de hooks e headlines para um Reels sobre procrastinação, para mulheres de 30 a 45 anos em terapia.",
-    horario: "14h12",
-  },
-  {
-    id: "m2",
-    autor: "plataforma",
-    texto:
-      "Briefing suficiente. Conflito inconsciente identificado: medo do julgamento disfarçado de falta de tempo. Diretriz compartilhada com os especialistas.",
-    horario: "14h13",
-  },
-];
+/**
+ * Resposta da plataforma ainda simulada (o pipeline entra em fase posterior).
+ * O texto é persistido como mensagem para reaparecer ao recarregar a conversa.
+ */
+export const RESPOSTA_SIMULADA =
+  "Briefing suficiente. Conflito inconsciente identificado: medo do julgamento disfarçado de falta de tempo. Diretriz compartilhada com os especialistas.";
 
 export interface PerfilMarca {
   id: string;
