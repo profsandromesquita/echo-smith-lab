@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -9,29 +11,56 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { SeloIaLocal } from "@/components/privacy/Indicadores";
-import { PERFIS_MARCA, ROTULO_FORMATO } from "@/lib/fixtures";
+import { SeletorPerfil } from "@/components/marca/SeletorPerfil";
+import { ROTULO_FORMATO } from "@/lib/fixtures";
 import { useDemo } from "@/lib/demo-state";
+import { chavesMarca, opcoesPerfilAtivo, rotuloOrigem } from "@/lib/marca";
+import { definirPerfilChat } from "@/lib/marca.functions";
 
-export function PainelParametros() {
+export function PainelParametros({ chatId = null }: { chatId?: string | null }) {
   const { modo, definirModo } = useDemo();
+  const cliente = useQueryClient();
+  const ativo = useQuery(opcoesPerfilAtivo(chatId));
+
+  const trocar = useMutation({
+    mutationFn: (perfilId: string | null) =>
+      definirPerfilChat({ data: { chatId: chatId ?? "", perfilId } }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: chavesMarca.raiz });
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Não foi possível trocar o perfil."),
+  });
+
+  const origem = ativo.data?.origem ?? "nenhum";
+  const substituido = Boolean(ativo.data?.substituido);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
       <Campo rotulo="Perfil de voz de marca">
-        <Select defaultValue={PERFIS_MARCA[0]?.id ?? ""}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERFIS_MARCA.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-[11px] text-muted-foreground">Herdado da pasta. Pode ser trocado só neste chat.</p>
+        <SeletorPerfil
+          valor={ativo.data?.perfil?.id ?? null}
+          aoMudar={(id) => chatId && trocar.mutate(id)}
+          rotuloVazio="Nenhum perfil"
+          desabilitado={!chatId || trocar.isPending}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          {chatId
+            ? `Origem: ${rotuloOrigem(origem, ativo.data?.pastaNome)}.`
+            : "A escolha por chat fica disponível depois da primeira mensagem."}
+        </p>
+        {chatId && substituido && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-fit px-2 text-[11px]"
+            onClick={() => trocar.mutate(null)}
+          >
+            Voltar à herança
+          </Button>
+        )}
       </Campo>
 
       <Separator />

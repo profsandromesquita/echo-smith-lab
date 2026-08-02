@@ -84,10 +84,10 @@ function Pagina() {
   }));
 
   return (
-    <AppShell titulo={titulo}>
+    <AppShell titulo={titulo} chatId={chatId}>
       <Workspace
         titulo={titulo}
-        marca="Padrão"
+        chatId={chatId}
         mensagens={mensagens}
         carregando={consulta.isLoading}
         enviando={envio.isPending}
