@@ -107,7 +107,7 @@ export function CartaoVariacao({ variacao }: { variacao: Variacao }) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <CollapsibleTrigger className="group ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
+            <CollapsibleTrigger className="group ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground underline-offset-2 hover:underline">
               Ver auditoria
               <ChevronDown
                 className="size-3.5 transition-transform group-data-[state=open]:rotate-180"
