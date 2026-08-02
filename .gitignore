@@ -30,3 +30,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env local (Lovable Cloud gera este arquivo)
+.env

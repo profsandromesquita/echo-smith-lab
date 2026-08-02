@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Brain, Gauge, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { ETAPAS_PIPELINE } from "@/lib/fixtures";
 
 const TITULO = "Copyforja — hooks e headlines auditados por múltiplos agentes";
@@ -22,17 +23,24 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { autenticado, carregando } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5">
         <span className="font-display text-lg font-semibold tracking-tight">Copyforja</span>
         <nav className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/auth">Entrar</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/app">Abrir workspace</Link>
-          </Button>
+          {carregando ? (
+            <div className="h-8 w-36" aria-hidden />
+          ) : autenticado ? (
+            <Button asChild size="sm">
+              <Link to="/app">Abrir workspace</Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm">
+              <Link to="/auth">Entrar</Link>
+            </Button>
+          )}
         </nav>
       </header>
 
