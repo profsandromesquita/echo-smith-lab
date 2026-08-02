@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
 import { Workspace } from "@/components/chat/Workspace";
-import { criarChat } from "@/lib/historico.functions";
+import { criarChat, enviarMensagem } from "@/lib/historico.functions";
+import { RESPOSTA_SIMULADA } from "@/lib/fixtures";
 
 const TITULO = "Workspace — Copyforja";
 const DESCRICAO =
@@ -28,7 +29,16 @@ function Pagina() {
   const cliente = useQueryClient();
 
   const criacao = useMutation({
-    mutationFn: (texto: string) => criarChat({ data: { primeiraMensagem: texto } }),
+    mutationFn: async (texto: string) => {
+      const chat = await criarChat({ data: { primeiraMensagem: texto } });
+      if (chat?.id) {
+        // Resposta ainda simulada, porém persistida como mensagem da conversa.
+        await enviarMensagem({
+          data: { chatId: chat.id, texto: RESPOSTA_SIMULADA, autor: "plataforma" },
+        });
+      }
+      return chat;
+    },
     onSuccess: (chat) => {
       void cliente.invalidateQueries({ queryKey: ["historico"] });
       if (chat?.id) void navegar({ to: "/app/c/$chatId", params: { chatId: chat.id } });
