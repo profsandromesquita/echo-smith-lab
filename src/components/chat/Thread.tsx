@@ -4,8 +4,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MENSAGENS, type MensagemChat } from "@/lib/fixtures";
 import { cn } from "@/lib/utils";
+
+export interface MensagemChat {
+  id: string;
+  autor: "usuario" | "plataforma";
+  texto: string;
+  horario: string;
+}
 
 /** Separa a primeira sentença (diagnóstico) do restante da análise. */
 function dividirAnalise(texto: string) {
@@ -41,10 +47,18 @@ function Diretriz({ mensagem }: { mensagem: MensagemChat }) {
   );
 }
 
-export function Thread() {
+export function Thread({ mensagens }: { mensagens: MensagemChat[] }) {
+  if (mensagens.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+        Nenhuma mensagem ainda. Descreva o briefing abaixo para começar.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      {MENSAGENS.map((m) =>
+      {mensagens.map((m) =>
         m.autor === "plataforma" ? (
           <Diretriz key={m.id} mensagem={m} />
         ) : (

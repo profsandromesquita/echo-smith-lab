@@ -1,8 +1,9 @@
-import { Thread } from "@/components/chat/Thread";
+import { Thread, type MensagemChat } from "@/components/chat/Thread";
 import { Composer } from "@/components/chat/Composer";
 import { AreaResultados } from "@/components/chat/AreaResultados";
 import { ResumoContexto } from "@/components/chat/ResumoContexto";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDemo, type EstadoDemo } from "@/lib/demo-state";
 
 const STATUS_PRINCIPAL: Record<EstadoDemo, string> = {
@@ -19,7 +20,21 @@ const STATUS_PRINCIPAL: Record<EstadoDemo, string> = {
   entregue: "Entregue",
 };
 
-export function Workspace({ titulo, marca }: { titulo: string; marca: string }) {
+export function Workspace({
+  titulo,
+  marca,
+  mensagens,
+  onEnviar,
+  enviando = false,
+  carregando = false,
+}: {
+  titulo: string;
+  marca: string;
+  mensagens: MensagemChat[];
+  onEnviar: (texto: string) => void | Promise<void>;
+  enviando?: boolean;
+  carregando?: boolean;
+}) {
   const { estado, offline } = useDemo();
   const status = offline ? "Sem conexão" : STATUS_PRINCIPAL[estado];
 
@@ -35,8 +50,15 @@ export function Workspace({ titulo, marca }: { titulo: string; marca: string }) 
         <ResumoContexto marca={marca} />
       </div>
 
-      <Thread />
-      <Composer />
+      {carregando ? (
+        <div className="space-y-2" aria-busy>
+          <Skeleton className="h-14 w-2/3" />
+          <Skeleton className="ml-auto h-14 w-1/2" />
+        </div>
+      ) : (
+        <Thread mensagens={mensagens} />
+      )}
+      <Composer onEnviar={onEnviar} enviando={enviando} />
       <AreaResultados />
     </div>
   );

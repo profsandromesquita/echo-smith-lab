@@ -14,6 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      chats: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: string
+          pasta_id: string | null
+          titulo: string
+          ultima_atividade_em: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          pasta_id?: string | null
+          titulo?: string
+          ultima_atividade_em?: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          pasta_id?: string | null
+          titulo?: string
+          ultima_atividade_em?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chats_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "pastas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens: {
+        Row: {
+          autor: string
+          chat_id: string
+          criado_em: string
+          id: string
+          texto: string
+          user_id: string
+        }
+        Insert: {
+          autor: string
+          chat_id: string
+          criado_em?: string
+          id?: string
+          texto: string
+          user_id?: string
+        }
+        Update: {
+          autor?: string
+          chat_id?: string
+          criado_em?: string
+          id?: string
+          texto?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pastas: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: string
+          nome: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          nome: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          nome?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           criado_em: string
@@ -58,6 +155,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -65,6 +163,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      pasta_e_minha: { Args: { _pasta_id: string }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       tem_papel: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean

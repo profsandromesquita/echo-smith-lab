@@ -1,4 +1,5 @@
-import { FileText, PenLine, Send, ShieldCheck, Type } from "lucide-react";
+import { useState } from "react";
+import { FileText, Loader2, PenLine, Send, ShieldCheck, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -12,11 +13,36 @@ import {
 const AVISO_PRIVACIDADE =
   "Nomes e dados identificáveis são verificados no seu dispositivo antes de qualquer envio.";
 
-export function Composer() {
+export function Composer({
+  onEnviar,
+  enviando = false,
+}: {
+  onEnviar: (texto: string) => void | Promise<void>;
+  enviando?: boolean;
+}) {
+  const [texto, setTexto] = useState("");
+
+  const enviar = () => {
+    const valor = texto.trim();
+    if (!valor || enviando) return;
+    setTexto("");
+    void onEnviar(valor);
+  };
+
   return (
     <div className="rounded-lg border bg-card px-3 py-2">
       <Textarea
         rows={2}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            enviar();
+          }
+        }}
+        maxLength={8000}
+        aria-label="Briefing"
         placeholder="Descreva o tema, o público e a promessa. Quanto mais concreta a dor, melhor o pacote."
         className="min-h-0 resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
       />
@@ -64,8 +90,17 @@ export function Composer() {
           </Tooltip>
         </TooltipProvider>
 
-        <Button size="sm" className="ml-auto h-8">
-          <Send className="size-4" aria-hidden />
+        <Button
+          size="sm"
+          className="ml-auto h-8"
+          onClick={enviar}
+          disabled={enviando || texto.trim().length === 0}
+        >
+          {enviando ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <Send className="size-4" aria-hidden />
+          )}
           Gerar pacote
         </Button>
       </div>
