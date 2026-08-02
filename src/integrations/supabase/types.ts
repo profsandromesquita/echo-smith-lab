@@ -65,6 +65,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      tem_papel: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "usuario" | "admin_tecnico"
