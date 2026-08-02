@@ -248,7 +248,7 @@ export function AreaResultados() {
               5 variações por formato · 3 entregues após auditoria e ranking
             </p>
           </div>
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="grid gap-3">
             {VARIACOES.map((v) => (
               <CartaoVariacao key={v.id} variacao={v} />
             ))}
