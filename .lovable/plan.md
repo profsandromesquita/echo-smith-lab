@@ -1,121 +1,130 @@
-# Fase F2 — Organização e histórico persistentes
+# Fase F3 — Voz de Marca persistente
 
 ## 1. Objetivo
 
-Substituir os fixtures de organização (pastas, chats, mensagens) por persistência real no Lovable Cloud, com isolamento por conta garantido no banco. Todo o conteúdo de IA (briefing inteligente, análise, especialistas, auditoria, ranking, resultados, favoritos, Voz de Marca, memória, privacidade avançada, IA local, Registry, jobs) permanece simulado e sob o ControleDemo.
+Substituir os fixtures de Voz de Marca por perfis reais e persistentes no Lovable Cloud. Cada conta mantém vários perfis (marcas ou clientes), define um padrão, associa perfil a pastas e pode substituir o perfil em um chat específico. Somente informações explícitas cadastradas pelo usuário são persistidas. Todo o conteúdo de IA, pipeline, auditoria e resultados continua simulado sob o ControleDemo.
 
 ## 2. Modelo de dados
 
-Três tabelas no schema público, todas com `user_id uuid not null default auth.uid()`.
+**perfis_marca** (`user_id uuid not null default auth.uid()`)
 
-**pastas**
+- `id uuid pk`, `nome text not null` (1–80)
+- `descricao text` (0–1000) — identidade
+- `publico text` (0–600), `posicionamento text` (0–1000)
+- `personalidade text` (0–600), `tom_de_voz text` (0–300)
+- `preferidas text[]` — até 60 itens, cada um até 60 chars
+- `evitadas text[]` — mesmos limites
+- `principios text` (0–1500) — princípios e restrições éticas
+- `orientacoes text` (0–2000) — orientações de escrita
+- `padrao boolean not null default false`
+- `criado_em`, `atualizado_em`
 
-- `id uuid pk`, `user_id`, `nome text not null`, `criado_em`, `atualizado_em`
+**exemplos_marca**
 
-**chats**
+- `id uuid pk`, `user_id`, `perfil_id uuid not null → perfis_marca(id) on delete cascade`
+- `titulo text` (0–120), `texto text not null` (1–4000)
+- `criado_em`, `atualizado_em`
+- limite de 30 exemplos por perfil, validado em função de servidor
 
-- `id uuid pk`, `user_id`, `pasta_id uuid null` → `pastas(id) on delete set null`
-- `titulo text not null default 'Novo chat'`
-- `criado_em`, `atualizado_em`, `ultima_atividade_em timestamptz not null default now()`
+**Alterações em tabelas da F2**
 
-**mensagens**
+- `pastas.perfil_marca_id uuid null → perfis_marca(id) on delete set null`
+- `chats.perfil_marca_id uuid null → perfis_marca(id) on delete set null` (substituição explícita do chat)
 
-- `id uuid pk`, `user_id`, `chat_id uuid not null` → `chats(id) on delete cascade`
-- `autor text not null check (autor in ('usuario','plataforma'))`
-- `texto text not null check (char_length(texto) between 1 and 8000)`
-- `criado_em`
+Integridade:
 
-Relações e integridade:
+- Índice único parcial `unique (user_id) where padrao` garante no máximo um perfil padrão por conta.
+- Trigger `before insert/update` em `pastas` e `chats` valida que o `perfil_marca_id` referenciado pertence ao mesmo `user_id` (usa função security definer `perfil_e_meu`, no mesmo padrão de `pasta_e_minha` da F2).
+- Trigger `before insert/update` em `exemplos_marca` valida que o perfil pertence ao usuário.
+- Triggers de `atualizado_em` nas duas novas tabelas.
+- Excluir perfil não apaga pasta nem chat: os vínculos viram nulos e os itens caem para a próxima regra de herança.
 
-- `pasta_id` nulo = chat solto, continua acessível pela lista "Sem pasta".
-- Exclusão de pasta **não** apaga chats: `on delete set null` move os chats para "Sem pasta". A UI avisa explicitamente quantos chats serão desvinculados antes de confirmar.
-- Exclusão de chat apaga suas mensagens em cascata, sempre com confirmação em diálogo.
-- Trigger `BEFORE UPDATE` mantém `atualizado_em`; trigger `AFTER INSERT` em `mensagens` atualiza `chats.ultima_atividade_em` (e o título quando ainda for o padrão, usando as primeiras palavras da primeira mensagem do usuário).
-- Trigger de coerência: `mensagens.user_id` e `chats.user_id` devem ser iguais ao dono do chat/pasta referenciado, evitando vínculo cruzado entre contas.
+Índices: `perfis_marca(user_id, nome)`, único parcial de padrão, `exemplos_marca(perfil_id, criado_em)`, `pastas(perfil_marca_id)`, `chats(perfil_marca_id)`.
 
-Índices:
+## 3. Regras de herança
 
-- `chats(user_id, ultima_atividade_em desc)`, `chats(user_id, pasta_id)`
-- `mensagens(chat_id, criado_em)`
-- `pastas(user_id, nome)`
-- Índice GIN de busca textual sobre `chats.titulo` e `mensagens.texto` (`pg_trgm`) para a busca no histórico.
+Prioridade de resolução do perfil ativo de um chat:
 
-## 3. Políticas de acesso
+```text
+1. chats.perfil_marca_id           -> origem: "chat"
+2. pastas.perfil_marca_id          -> origem: "pasta"
+3. perfis_marca padrao = true      -> origem: "padrao"
+4. nenhum                          -> origem: "nenhum"
+```
 
-- `GRANT SELECT, INSERT, UPDATE, DELETE` para `authenticated`; `GRANT ALL` para `service_role`; **nenhum grant para `anon**`.
-- RLS habilitada nas três tabelas, com políticas separadas por operação, todas `TO authenticated` e escopadas em `auth.uid() = user_id` (USING e WITH CHECK).
-- Em `chats`, o WITH CHECK exige que `pasta_id` seja nulo ou pertença ao mesmo usuário. Em `mensagens`, exige que o `chat_id` pertença ao usuário.
-- `user_id` nunca vem do frontend: default `auth.uid()` no banco e, nas funções de servidor, sempre `context.userId`.
+- A resolução acontece no servidor, em uma única função que devolve `{ perfil, origem }`.
+- A interface sempre exibe a origem: "herdado da pasta X", "perfil padrão", "definido neste chat", "nenhum perfil".
+- Remover a substituição do chat = gravar `null` em `chats.perfil_marca_id`, voltando à herança.
+- Trocar o padrão é operação atômica: limpa o padrão anterior e marca o novo na mesma transação.
 
-## 4. Rotas e componentes afetados
+## 4. Políticas de acesso
 
-Nenhuma rota nova; nenhuma rota removida.
+- `GRANT SELECT, INSERT, UPDATE, DELETE` para `authenticated`; `GRANT ALL` para `service_role`; nenhum grant para `anon`.
+- RLS habilitada nas duas tabelas novas, políticas separadas por operação, todas `TO authenticated`, escopadas em `auth.uid() = user_id` em USING e WITH CHECK.
+- WITH CHECK adicional em `pastas` e `chats`: `perfil_marca_id` nulo ou pertencente ao usuário.
+- `user_id` nunca vem do frontend: default `auth.uid()` no banco e `context.userId` nas funções de servidor com `requireSupabaseAuth`.
+- Perfil inexistente e perfil de outra conta produzem exatamente a mesma resposta neutra, sem revelar existência.
 
-- `src/routes/_authenticated/app/index.tsx` — passa a ser o "novo chat" real: cria o chat na primeira mensagem e navega para `/app/c/$chatId`.
-- `src/routes/_authenticated/app/c.$chatId.tsx` — carrega o chat pelo id; trata "não encontrado" e "de outra conta" com a mesma tela neutra (sem revelar existência).
-- `src/components/layout/PainelPastas.tsx` — passa a listar dados reais, com criar/renomear/excluir pasta, mover chat, renomear/excluir chat e busca funcional.
-- `src/components/chat/Thread.tsx` — recebe as mensagens como prop, vindas do banco.
-- `src/components/chat/Composer.tsx` — envio grava a mensagem do usuário; a resposta "plataforma" continua vinda do fixture/ControleDemo.
-- `src/components/chat/Workspace.tsx` — recebe título/chatId; badge de status e área de resultados seguem simulados.
-- Novos: `src/lib/historico.functions.ts` (server functions autenticadas) e diálogos de renomear/mover/excluir.
+## 5. Rotas e componentes afetados
 
-Preservados sem alteração de identidade visual: AppShell, MenuConta, PainelParametros, ControleDemo, AreaResultados, CartaoVariacao, layout de três colunas e a simplificação aprovada da conversa.
+Nenhuma rota nova, nenhuma removida.
 
-## 5. Estratégia para substituir fixtures sem regressão
+- `src/routes/_authenticated/config/voz-de-marca.tsx` — lista real, criar, editar, renomear, duplicar, excluir, definir padrão, gerenciar exemplos.
+- `src/routes/_authenticated/onboarding.tsx` — o passo 1 passa a criar de fato o primeiro perfil (definido como padrão) e reconhece quando já existe perfil, permitindo atualizar.
+- `src/components/layout/PainelParametros.tsx` — seletor real com opções "herdar" e perfis do usuário, mais rótulo de origem.
+- `src/components/layout/PainelPastas.tsx` — diálogo de pasta ganha o campo de perfil associado (criar e editar pasta).
+- `src/components/chat/ResumoContexto.tsx` e `src/components/chat/Workspace.tsx` — mostram o perfil resolvido e a origem, em vez do texto fixo.
+- Novos: `src/lib/marca.functions.ts` (funções de servidor), `src/lib/marca.ts` (queryOptions e tipos), formulário de perfil e diálogo de exclusão com impacto.
 
-1. Os fixtures de pipeline permanecem em `src/lib/fixtures.ts`. Removem-se apenas `PASTAS` e `MENSAGENS` do uso em runtime.
-2. As mesmas formas de dado (`titulo`, `atualizadoEm`, `autor`, `texto`) são mantidas nos tipos, para que os componentes visuais mudem só a origem dos dados.
-3. Toda leitura/escrita passa por server functions com `requireSupabaseAuth`; as telas usam TanStack Query (`useQuery`/`useMutation` + invalidação).
-4. Rotas protegidas já vivem sob `_authenticated`, então loaders podem carregar os dados sem risco de prerender.
-5. Atualização otimista apenas onde é reversível e sem id gerado pelo servidor: renomear pasta/chat e mover chat. Criação e exclusão aguardam a confirmação do servidor.
+Preservados sem mudança de identidade: AppShell, MenuConta, ControleDemo, Thread, Composer, AreaResultados, CartaoVariacao, layout de três colunas.
 
-## 6. Sequência de implementação
+## 6. Estratégia para substituir fixtures
 
-1. Migração: tabelas, grants, RLS, triggers, índices e extensão de busca.
-2. `historico.functions.ts`: listar árvore, criar/renomear/excluir pasta, criar/renomear/mover/excluir chat, listar e criar mensagem, buscar histórico. Validação com Zod (tamanho de nome/título/texto).
-3. PainelPastas real, com estados de carregamento, vazio e erro.
-4. Rota do chat: carregamento de mensagens, envio persistido, estados de não encontrado.
-5. Rota `/app`: criação do chat na primeira mensagem e navegação.
-6. Limpeza dos fixtures de organização e validação completa.
+1. Remover `PERFIS_MARCA` do uso em runtime; o tipo `PerfilMarca` migra para `src/lib/marca.ts` alinhado ao schema.
+2. Manter os mesmos componentes visuais; muda só a origem dos dados.
+3. Toda leitura/escrita por funções de servidor autenticadas, com TanStack Query e invalidação (`["marca","lista"]`, `["marca","perfil",id]`, `["marca","resolvido",chatId]`).
+4. Loaders são seguros porque as rotas já vivem sob `_authenticated`.
+5. Atualização otimista apenas em renomear e definir padrão; criar, duplicar e excluir aguardam o servidor.
+6. Fixtures de pipeline em `src/lib/fixtures.ts` permanecem intactos.
 
-## 7. Riscos
+## 7. Sequência de implementação
 
-- **Fixture ainda referenciado** em algum ponto do layout — mitigado removendo os exports usados em runtime e deixando o typecheck apontar.
-- **Enumeração de chats por URL** — mitigada por RLS e resposta idêntica para inexistente e alheio.
-- **Título automático sobrescrevendo renomeação manual** — só é aplicado enquanto o título for o padrão.
-- **Perda visual na conversa** ao trocar a origem dos dados — mitigada mantendo os mesmos componentes e regressão visual nos três breakpoints.
-- **Busca lenta** com histórico grande — mitigada com índice trigram e limite de resultados.
+1. Migração: `perfis_marca`, `exemplos_marca`, colunas em `pastas`/`chats`, grants, RLS, triggers, índices, único parcial de padrão.
+2. `marca.functions.ts`: listar, obter, criar, atualizar, renomear, duplicar, excluir (com relatório de impacto), definir padrão, CRUD de exemplos, definir perfil de pasta, definir/remover substituição do chat, resolver perfil ativo.
+3. Página de configuração de Voz de Marca com todos os estados.
+4. Seletor no painel de parâmetros e rótulo de origem no resumo contextual.
+5. Campo de perfil no gerenciamento de pasta.
+6. Onboarding real de criação/atualização do primeiro perfil.
+7. Limpeza dos fixtures de marca e validação completa.
 
-## 8. Critérios de aceite
+Estados de interface cobertos: carregando, nenhum perfil, criação, edição, duplicação, exclusão com impacto, padrão, herdado da pasta, substituído no chat, erro, não encontrado, acesso a perfil de outra conta (tela neutra idêntica ao não encontrado).
 
-- Pastas, chats e mensagens persistem após recarregar, sair e entrar de novo.
-- Chat sem pasta continua listado e acessível.
-- Excluir pasta desvincula chats, nunca os apaga, e avisa antes.
-- Excluir chat exige confirmação e remove as mensagens junto.
-- Busca retorna apenas dados do próprio usuário.
-- Lista ordenada por atividade recente.
-- Conta B não vê nem acessa nada da conta A, inclusive via URL direta.
-- Identidade visual, layout, responsividade, auth e ControleDemo intactos.
+## 8. Riscos
+
+- **Corrida ao definir padrão** — mitigada por operação atômica no servidor e índice único parcial.
+- **Exclusão quebrando vínculos silenciosamente** — mitigada pelo diálogo que informa quantas pastas e chats usam o perfil, permite cancelar ou escolher substituto, e por `on delete set null`.
+- **Vínculo cruzado entre contas** — mitigado por triggers de propriedade além da RLS.
+- **Sobrecarga visual do formulário** (muitos campos) — mitigada por seções colapsáveis, mantendo a simplificação aprovada.
+- **Regressão na F2** — mitigada por alterar `pastas`/`chats` apenas com colunas anuláveis e rodar a regressão completa da F2.
+- **Fixture ainda referenciado** — mitigado removendo o export usado em runtime e deixando o typecheck apontar.
+
+## 9. Critérios de aceite
+
+- Vários perfis por conta persistem após recarregar, sair e entrar de novo.
+- Editar, renomear e duplicar funcionam; a duplicata nunca nasce como padrão.
+- Existe no máximo um padrão por conta, garantido pelo banco.
+- Pasta com perfil associado propaga para seus chats; chat pode substituir e voltar à herança.
+- A interface sempre informa a origem do perfil ativo.
+- Excluir perfil em uso mostra o impacto, permite cancelar, e os itens afetados caem para a próxima regra de herança sem erro.
+- Conta B não vê nem referencia perfis da conta A, inclusive por URL ou id direto.
+- Exemplos de escrita são armazenados e não são enviados a nenhum modelo.
+- F1 e F2 intactas; identidade visual, layout, responsividade e ControleDemo preservados.
 - Build, tipos e console limpos.
 
-## 9. Testes
+## 10. Testes
 
-Automatizados via navegador com duas contas reais:
-criar/renomear/excluir pasta; criar chat com e sem pasta; mover chat; renomear chat; excluir chat com confirmação; persistir mensagens; recarregar; logout e novo login; busca no histórico; isolamento entre contas; acesso a chat alheio pela URL (tela neutra, sem vazamento); regressão visual em 375, 768 e 1440 px; verificação de build, typecheck e console sem erros.
+Automatizados via navegador com duas contas reais: criar múltiplos perfis; editar; renomear; duplicar; definir e trocar o padrão; associar perfil a uma pasta; criar chat na pasta e confirmar herança e rótulo de origem; substituir perfil no chat; remover a substituição; excluir perfil em uso confirmando aviso de impacto e retorno à herança; persistência após recarregar e novo login; isolamento entre contas; tentativa de usar id de perfil de outra conta (resposta neutra); regressão de F1 e F2 (login, pastas, chats, mensagens, busca); regressão visual em 375, 768 e 1440 px; build, typecheck e console sem erros.
 
-## 10. Confirmação de escopo
+## 11. Confirmação de escopo
 
-Nenhuma fase posterior será antecipada. Ficam de fora desta fase: Voz de Marca persistente, favoritos e edições reais, pipeline, consentimentos, Registry, jobs, modelos de IA, Llama local, RAG, compartilhamento, times, colaboração e importação de arquivos.
-
-11. Regra de consistência
-
-Aplique a regra a seguir sem ampliar o escopo:  
-- Embora o conteúdo das respostas da plataforma continue vindo dos fixtures e do ControleDemo, toda resposta que for efetivamente exibida como mensagem da conversa também deve ser persistida na tabela mensagens com autor = 'plataforma'.
-
-- Ao recarregar o chat, as mensagens devem vir do banco; não gere novamente respostas simuladas já exibidas.
-
-- Isso não transforma os resultados, auditoria ou pipeline em dados reais. Persistem apenas as mensagens que compõem a conversa.
-
-- Na criação do primeiro chat, trate criação do chat e gravação da primeira mensagem como uma operação consistente, evitando deixar chat vazio se a mensagem falhar.
-
-Não altere nenhum outro ponto do plano e não antecipe fases posteriores.
+Nenhuma fase posterior será antecipada. Ficam de fora desta fase: preferências inferidas, aprendizado por favoritos e edições, few-shot dinâmico, memória adaptativa em IndexedDB, embeddings, RAG, Llama local real, processamento da Voz de Marca por modelos, pipeline, auditoria real, Registry, jobs, consentimentos avançados da F4, integrações externas, compartilhamento, times e colaboração.
