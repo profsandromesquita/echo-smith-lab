@@ -19,7 +19,7 @@ export const listarHistorico = createServerFn({ method: "GET" })
       await Promise.all([
         context.supabase
           .from("pastas")
-          .select("id, nome, criado_em")
+          .select("id, nome, criado_em, perfil_marca_id")
           .order("nome", { ascending: true }),
         context.supabase
           .from("chats")

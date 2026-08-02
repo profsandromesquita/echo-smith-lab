@@ -1,17 +1,22 @@
 import { ChevronDown } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SeloIaLocal } from "@/components/privacy/Indicadores";
 import { useDemo, ESTADOS_IA_LOCAL } from "@/lib/demo-state";
+import { opcoesPerfilAtivo, rotuloOrigem } from "@/lib/marca";
 
 const ROTULO_MODO = {
   local_estrita: "Memória local estrita",
   hibrido_autorizado: "Híbrido autorizado",
 } as const;
 
-export function ResumoContexto({ marca }: { marca: string }) {
+export function ResumoContexto({ chatId = null }: { chatId?: string | null }) {
   const { modo, iaLocal } = useDemo();
+  const { data } = useQuery(opcoesPerfilAtivo(chatId));
   const rotuloIa = ESTADOS_IA_LOCAL.find((e) => e.id === iaLocal)?.rotulo ?? "IA local";
+  const marca = data?.perfil?.nome ?? "Sem perfil de marca";
+  const origem = rotuloOrigem(data?.origem ?? "nenhum", data?.pastaNome);
   const resumo = `Voz: ${marca} · ${ROTULO_MODO[modo]} · ${rotuloIa}`;
 
   return (
@@ -30,6 +35,7 @@ export function ResumoContexto({ marca }: { marca: string }) {
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Voz de marca</p>
           <p className="mt-0.5">{marca}</p>
+          <p className="text-[11px] text-muted-foreground">{origem}</p>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
