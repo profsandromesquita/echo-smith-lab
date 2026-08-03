@@ -6,6 +6,7 @@
 
 import { executarHeadlineArchitect } from "@/lib/agentes/headline-architect.server";
 import { executarHookMaster } from "@/lib/agentes/hook-master.server";
+import { executarCtaSpecialist } from "@/lib/agentes/cta-specialist.server";
 import type { EntradaEspecialista } from "@/lib/agentes/especialista-base.server";
 import { normalizarEsforco } from "@/lib/agentes/especialista-etapa.server";
 import type { NivelEsforco } from "@/lib/provedores/tipos";
@@ -30,8 +31,10 @@ export interface VersaoEspecialistaParaTeste {
   timeout_ms: number;
 }
 
+type PapelTestavel = "hook_master" | "headline_architect" | "cta_specialist";
+
 async function rodar(
-  papel: "hook_master" | "headline_architect",
+  papel: PapelTestavel,
   versao: VersaoEspecialistaParaTeste,
   esforco: NivelEsforco,
   formato: string,
@@ -46,6 +49,20 @@ async function rodar(
   };
   const entrada = { ...ENTRADA_SINTETICA, formato, parametros: { formato } };
   const args = { config, entrada, chaveIdempotencia: `teste-admin:${esforco}:${Date.now()}` };
+  if (papel === "cta_specialist") {
+    const r = await executarCtaSpecialist(args);
+    return {
+      esforco,
+      ok: r.ok,
+      duracao_ms: r.duracaoMs,
+      tokens_entrada: r.uso.tokensEntrada,
+      tokens_saida: r.uso.tokensSaida,
+      custo_usd: r.uso.custoUsd,
+      saidas: r.ok ? r.dados.variacoes.length : 0,
+      codigo_erro: r.ok ? null : r.codigo,
+    };
+  }
+
   const r =
     papel === "hook_master"
       ? await executarHookMaster(args)
@@ -64,13 +81,14 @@ async function rodar(
 }
 
 export async function testarEspecialistaSintetico(
-  papel: "hook_master" | "headline_architect",
+  papel: PapelTestavel,
   versao: VersaoEspecialistaParaTeste,
   esforcoComparado: NivelEsforco | null,
 ) {
   const parametros = (versao.parametros ?? {}) as Record<string, unknown>;
   const principal = normalizarEsforco(parametros['effort']);
-  const formato = papel === "hook_master" ? "hook" : "headline_video";
+  const formato =
+    papel === "hook_master" ? "hook" : papel === "cta_specialist" ? "cta" : "headline_video";
 
   const execucoes = [await rodar(papel, versao, principal, formato)];
   if (esforcoComparado && esforcoComparado !== principal) {

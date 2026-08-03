@@ -168,11 +168,15 @@ export const testarRascunho = createServerFn({ method: "POST" })
 
     if (versao?.provedor === "anthropic") {
       if (!data.confirmarChamadaReal) erro("Confirme o teste: ele faz uma chamada real e gera custo.");
-      if (data.papel !== "hook_master" && data.papel !== "headline_architect") {
+      if (
+        data.papel !== "hook_master" &&
+        data.papel !== "headline_architect" &&
+        data.papel !== "cta_specialist"
+      ) {
         erro("Este papel ainda não usa o provedor Anthropic.");
       }
       const real = await testarEspecialistaSintetico(
-        data.papel as "hook_master" | "headline_architect",
+        data.papel as "hook_master" | "headline_architect" | "cta_specialist",
         versao,
         data.esforcoComparado,
       );
