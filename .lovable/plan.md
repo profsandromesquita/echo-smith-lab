@@ -95,7 +95,7 @@ O Auditor real produz o feedback; a etapa corretora permanece simulada e passa a
 
 ## 10. Ranking
 
-Permanece determinístico e com pesos versionados. Passa a consumir notas reais mapeadas para os fatores existentes em `src/lib/ranking.ts` (`nota_auditor`, `objetivo`, `formato`, `voz_marca`, `sem_cliches`, `confianca`), normalizadas da escala 0–10. Sem Voz de Marca autorizada, o fator é neutralizado no cálculo em vez de receber nota inventada. Sem LLM ponderador.
+Permanece determinístico e com pesos versionados. Passa a consumir notas reais mapeadas para os fatores existentes em `src/lib/ranking.ts` (`nota_auditor`, `objetivo`, `formato`, `voz_marca`, `sem_cliches`, `confianca`), normalizadas da escala 0–10. Quando `voz_marca_avaliavel = false`, o fator `voz_marca` é removido do somatório e do divisor de pesos — neutralização real, sem zero implícito e sem penalizar quem não autorizou o envio. Variação sem auditoria válida não entra no ranking. Sem LLM ponderador.
 
 ## 11. Registry
 
@@ -103,7 +103,7 @@ Migração ampliando `registry_validar`: OpenAI permitido para `gatekeeper`, `an
 
 ## 12. Máquina de estados
 
-Sem alterações: reserva, lease, backoff, tentativas, timeout, cancelamento, resposta tardia, `unknown_outcome`, telemetria, versão do Registry e persistência parcial seguem como estão. Falha do Auditor preserva as variações e impede promoção automática para a curadoria final.
+Sem alterações: reserva, lease, backoff, tentativas, timeout, cancelamento, resposta tardia, `unknown_outcome`, telemetria, versão do Registry e persistência parcial seguem como estão. A auditoria em lotes usa a persistência parcial já existente: cada lote validado é gravado de forma independente e retomado sem reprocessar o que já foi persistido. Falha do Auditor preserva as variações e impede promoção automática para a curadoria final.
 
 ## 13. Observabilidade
 
@@ -121,7 +121,8 @@ Alterados:
 - `src/lib/adaptadores-simulados.ts` — correção simulada consumindo feedback real.
 - `src/lib/ranking.ts` e mapeamento de fatores — notas reais.
 - `src/lib/execucao.ts` e `PainelExecucao.tsx` — estados e rótulos seguros de análise e auditoria.
-- Migração SQL de `registry_validar`.
+- Catálogo de categorias de consentimento e `ModalConsentimento.tsx` — nova categoria `variacoes_para_auditoria` com texto explícito sobre envio à OpenAI.
+- Migração SQL de `registry_validar` e da nova categoria de consentimento.
 
 ## 15. Sequência de implementação
 
@@ -131,7 +132,8 @@ Alterados:
 4. Migração do Registry e validação.
 5. Roteamento real do Analista e telemetria.
 6. Módulos do Auditor (schema por item, validação, alertas).
-7. Roteamento real do Auditor e persistência das auditorias.
+7. Nova categoria de consentimento `variacoes_para_auditoria` (migração, fotografia e modal).
+8. Roteamento real do Auditor em lotes por formato, com validação de integridade e persistência por lote.
 8. Consumo do feedback real pela correção simulada e pelo ranking.
 9. Testes administrativos sintéticos dos dois papéis.
 10. Ajustes de interface e mensagens seguras.
