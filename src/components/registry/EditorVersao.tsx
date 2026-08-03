@@ -85,7 +85,12 @@ export function EditorVersao({
     setValidada(false);
     setTestada(false);
     setConfirmarReal(false);
-    setEsforco(String((versao?.parametros as Record<string, unknown> | null)?.['reasoning_effort'] ?? "low"));
+    setEsforco(
+      String(
+        (versao?.parametros as Record<string, unknown> | null)?.['reasoning_effort'] ??
+          (versao?.papel === "auditor" ? "high" : "low"),
+      ),
+    );
     setEsforcoAnthropic(
       String((versao?.parametros as Record<string, unknown> | null)?.['effort'] ?? "medium"),
     );
@@ -151,7 +156,7 @@ export function EditorVersao({
           papel: form!.papel as never,
           confirmarChamadaReal: form!.provedor !== "simulado" && confirmarReal,
           esforcoComparado:
-            form!.provedor === "anthropic" && esforcoComparado !== "nenhum"
+            form!.provedor !== "simulado" && esforcoComparado !== "nenhum"
               ? (esforcoComparado as "low" | "medium" | "high" | "xhigh" | "max")
               : null,
         },
@@ -182,6 +187,18 @@ export function EditorVersao({
   const openai = form.provedor === "openai";
   const anthropic = form.provedor === "anthropic";
   const real = openai || anthropic;
+  // o auditor precisa de esforço alto; gatekeeper e análise psicológica ficam em low/medium
+  const esforcosOpenAI =
+    form.papel === "auditor"
+      ? [
+          { valor: "high", rotulo: "Alto (padrão da auditoria)" },
+          { valor: "xhigh", rotulo: "Muito alto" },
+          { valor: "max", rotulo: "Máximo" },
+        ]
+      : [
+          { valor: "low", rotulo: "Baixo (triagem)" },
+          { valor: "medium", rotulo: "Médio" },
+        ];
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
@@ -226,8 +243,8 @@ export function EditorVersao({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              OpenAI vale só para o Gatekeeper; Anthropic vale só para Hook Master e Headline
-              Architect. A credencial fica em Secrets e nunca é gravada aqui.
+              OpenAI vale para Gatekeeper, Análise psicológica e Auditoria; Anthropic vale só para
+              Hook Master e Headline Architect. A credencial fica em Secrets e nunca é gravada aqui.
             </p>
           </div>
 
@@ -252,10 +269,17 @@ export function EditorVersao({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Baixo (triagem)</SelectItem>
-                  <SelectItem value="medium">Médio</SelectItem>
+                  {esforcosOpenAI.map((e) => (
+                    <SelectItem key={e.valor} value={e.valor}>
+                      {e.rotulo}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                O esforço faz parte da versão publicada: mudar o nível exige novo rascunho,
+                validação, teste e publicação.
+              </p>
             </div>
           )}
 
@@ -354,7 +378,7 @@ export function EditorVersao({
                   Usa apenas briefing sintético, não cria execução de usuário e pode gerar custo no
                   provedor.
                 </p>
-                {anthropic && (
+                {(anthropic || (openai && form.papel !== "gatekeeper")) && (
                   <div className="grid gap-2">
                     <Label htmlFor="esforco-comparado">Comparar com outro nível de esforço</Label>
                     <Select value={esforcoComparado} onValueChange={setEsforcoComparado}>
