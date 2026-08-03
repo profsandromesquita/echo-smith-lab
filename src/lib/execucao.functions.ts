@@ -15,8 +15,10 @@ import {
 import {
   categoriaAutorizada,
   executarEtapaEspecialista,
+  executarEtapaCta,
   lerConfiguracaoEspecialista,
   resultadosDoEspecialista,
+  resultadosDoCta,
 } from "@/lib/agentes/especialista-etapa.server";
 import {
   executarEtapaAuditor,
@@ -25,6 +27,8 @@ import {
   resultadosDaPsicologia,
 } from "@/lib/agentes/openai-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
+import { executarEtapaCorrecao } from "@/lib/agentes/correcao-etapa.server";
+import { reconciliarOrcamento, reservarOrcamentoEtapa } from "@/lib/agentes/orcamento.server";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
@@ -34,6 +38,7 @@ const categoria = z.enum([
   "texto_gerado",
   "metadados",
   "variacoes_para_auditoria",
+  "feedback_para_correcao",
 ]);
 
 function erro(mensagem: string): never {
@@ -259,12 +264,40 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           return { avancou: true as const, papel: etapa.papel, desfecho: "falhou", codigoErro: "autorizacao_ausente" };
         }
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaGatekeeper(context.supabase, {
           configuracao,
           chatId: execucao?.chat_id ?? null,
           formato: formatoExec,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -366,6 +399,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           "resumo_voz_marca",
         );
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaEspecialista(context.supabase, {
           papel: etapa.papel,
           configuracao,
@@ -375,6 +430,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -396,6 +457,147 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           });
           if (eConcluir) {
             // a chamada externa pode ter sido processada e cobrada: nunca repetir às cegas
+            statusEvento = "unknown_outcome";
+            codigoErro = "unknown_outcome";
+            desfechoReal = "resultado_incerto";
+            await context.supabase.rpc("falhar_etapa", {
+              _etapa_id: etapa.etapa_id,
+              _lease_token: etapa.lease_token,
+              _codigo_erro: "unknown_outcome",
+              _incerto: true,
+              _sem_retry: false,
+            });
+          }
+        } else {
+          statusEvento = "erro";
+          codigoErro = resultado.codigo;
+          const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: resultado.codigo,
+            _incerto: false,
+            _sem_retry: ERROS_SEM_RETRY.has(resultado.codigo),
+          });
+          desfechoReal = String(novo ?? "pendente");
+        }
+
+        await context.supabase.rpc("registrar_evento_tecnico", {
+          _tipo: "etapa",
+          _etapa: etapa.papel,
+          _provedor: "anthropic",
+          _modelo: modelo,
+          _duracao_ms: resultado.duracaoMs,
+          _status: statusEvento,
+          _codigo_erro: codigoErro as never,
+          _tentativas: etapa.tentativa,
+          _custo: resultado.uso.custoUsd,
+          _chat_id: (execucao?.chat_id ?? null) as never,
+          _tokens_entrada: resultado.uso.tokensEntrada,
+          _tokens_saida: resultado.uso.tokensSaida,
+        });
+
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: desfechoReal,
+          codigoErro,
+          mensagem: resultado.ok ? null : MENSAGEM_SEGURA[resultado.codigo],
+        };
+      }
+    }
+
+    // ---- CTA Specialist com provedor real (F6D). ----
+    if (etapa.papel === "cta_specialist") {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoEspecialista(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+      );
+
+      if (configuracao && configuracao.provedor === "anthropic") {
+        const fotografiaId = execucao?.fotografia_id ?? null;
+        const autorizado = await categoriaAutorizada(context.supabase, fotografiaId, "briefing");
+        if (!autorizado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "autorizacao_ausente",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "autorizacao_ausente",
+          };
+        }
+
+        const vozAutorizada = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "resumo_voz_marca",
+        );
+
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
+        const { resultado, modelo } = await executarEtapaCta(context.supabase, {
+          configuracao,
+          execucaoId: data.id,
+          chatId: execucao?.chat_id ?? null,
+          formato: formatoExec,
+          vozAutorizada,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: resultado.uso.custoUsd,
+        });
+
+        let desfechoReal = "concluida";
+        let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+        let codigoErro: string | null = null;
+
+        if (resultado.ok) {
+          const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _duracao_ms: resultado.duracaoMs,
+            _resultados: resultadosDoCta(
+              data.id,
+              formatoExec,
+              modelo,
+              resultado.dados.variacoes,
+            ) as never,
+          });
+          if (eConcluir) {
             statusEvento = "unknown_outcome";
             codigoErro = "unknown_outcome";
             desfechoReal = "resultado_incerto";
@@ -476,6 +678,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaPsicologia(context.supabase, {
           configuracao,
           execucaoId: data.id,
@@ -483,6 +707,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           formato: formatoExec,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -546,8 +776,120 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       }
     }
 
-    // ---- Auditoria com provedor real (F6C), em lotes independentes. ----
-    if (etapa.papel === "auditor") {
+    // ---- Correção única no especialista de origem (F6D). ----
+    if (etapa.papel === "correcao") {
+      const fotografiaId = execucao?.fotografia_id ?? null;
+      const autorizado = await categoriaAutorizada(
+        context.supabase,
+        fotografiaId,
+        "feedback_para_correcao",
+      );
+      if (!autorizado) {
+        await context.supabase.rpc("falhar_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _codigo_erro: "autorizacao_ausente",
+          _incerto: false,
+          _sem_retry: true,
+        });
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: "falhou",
+          codigoErro: "autorizacao_ausente",
+        };
+      }
+
+      const { data: idsEtapasCor } = await context.supabase
+        .from("execucao_etapas")
+        .select("id")
+        .eq("execucao_id", data.id);
+      const { data: diretrizes } = await context.supabase
+        .from("execucao_resultados")
+        .select("payload")
+        .in("etapa_id", (idsEtapasCor ?? []).map((e) => e.id))
+        .eq("tipo", "diretriz");
+      let diretrizPsicologica: string | null = null;
+      for (const d of diretrizes ?? []) {
+        const p = (d.payload ?? {}) as Record<string, unknown>;
+        if (p['campo'] === "diretriz_estrategica") diretrizPsicologica = String(p['texto'] ?? "");
+      }
+
+      const desfecho = await executarEtapaCorrecao(context.supabase, {
+        execucaoId: data.id,
+        formato: formatoExec,
+        etapaId: etapa.etapa_id,
+        tentativa: etapa.tentativa,
+        diretrizPsicologica,
+      });
+
+      let desfechoReal = "concluida";
+      let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+      let codigoErro: string | null = null;
+
+      if (desfecho.ok) {
+        const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _duracao_ms: desfecho.duracaoMs,
+          _resultados: desfecho.resultados as never,
+          _parcial: desfecho.lotesFalhos > 0,
+        });
+        if (eConcluir) {
+          statusEvento = "unknown_outcome";
+          codigoErro = "unknown_outcome";
+          desfechoReal = "resultado_incerto";
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "unknown_outcome",
+            _incerto: true,
+            _sem_retry: false,
+          });
+        } else if (desfecho.semOrcamento > 0) {
+          codigoErro = "orcamento_esgotado";
+        } else if (desfecho.lotesFalhos > 0) {
+          codigoErro = "correcao_parcial";
+        }
+      } else {
+        statusEvento = "erro";
+        codigoErro = desfecho.codigo ?? "provider_error";
+        const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _codigo_erro: codigoErro,
+          _incerto: false,
+          _sem_retry: desfecho.codigo ? ERROS_SEM_RETRY.has(desfecho.codigo) : false,
+        });
+        desfechoReal = String(novo ?? "pendente");
+      }
+
+      await context.supabase.rpc("registrar_evento_tecnico", {
+        _tipo: "etapa",
+        _etapa: etapa.papel,
+        _provedor: "anthropic",
+        _modelo: desfecho.modelos[0] ?? "n/a",
+        _duracao_ms: desfecho.duracaoMs,
+        _status: statusEvento,
+        _codigo_erro: codigoErro as never,
+        _tentativas: etapa.tentativa,
+        _custo: desfecho.uso.custoUsd,
+        _chat_id: (execucao?.chat_id ?? null) as never,
+        _tokens_entrada: desfecho.uso.tokensEntrada,
+        _tokens_saida: desfecho.uso.tokensSaida,
+      });
+
+      return {
+        avancou: true as const,
+        papel: etapa.papel,
+        desfecho: desfechoReal,
+        codigoErro,
+        mensagem: desfecho.ok ? null : desfecho.mensagemSegura,
+      };
+    }
+
+    // ---- Auditoria e auditoria final com provedor real (F6C/F6D), em lotes. ----
+    if (etapa.papel === "auditor" || etapa.papel === "auditoria_final") {
       const { data: linhaEtapa } = await context.supabase
         .from("execucao_etapas")
         .select("registry_versao_id")
@@ -588,6 +930,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           "resumo_voz_marca",
         );
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { desfecho, modelo } = await executarEtapaAuditor(context.supabase, {
           configuracao,
           execucaoId: data.id,
@@ -595,6 +959,13 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+          alvo: etapa.papel === "auditoria_final" ? "corrigida" : "original",
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: desfecho.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";

@@ -10,6 +10,7 @@ const categoria = z.enum([
   "texto_gerado",
   "metadados",
   "variacoes_para_auditoria",
+  "feedback_para_correcao",
 ]);
 const decisao = z.enum(["concedido", "recusado"]);
 const origem = z.enum(["modal", "configuracoes", "painel_chat", "sistema"]);

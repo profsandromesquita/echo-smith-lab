@@ -49,6 +49,7 @@ export const ROTULO_CATEGORIA: Record<string, string> = {
   texto_gerado: "Texto gerado",
   metadados: "Metadados técnicos",
   variacoes_para_auditoria: "Variações geradas para auditoria",
+  feedback_para_correcao: "Feedback da auditoria para correção",
 };
 
 export const ROTULO_ESCOPO: Record<string, string> = {

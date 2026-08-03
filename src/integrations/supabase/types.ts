@@ -435,6 +435,51 @@ export type Database = {
           },
         ]
       }
+      execucao_reservas_custo: {
+        Row: {
+          chave: string
+          criado_em: string
+          custo_real: number | null
+          custo_reservado: number
+          etapa_id: string | null
+          execucao_id: string
+          id: string
+        }
+        Insert: {
+          chave: string
+          criado_em?: string
+          custo_real?: number | null
+          custo_reservado: number
+          etapa_id?: string | null
+          execucao_id: string
+          id?: string
+        }
+        Update: {
+          chave?: string
+          criado_em?: string
+          custo_real?: number | null
+          custo_reservado?: number
+          etapa_id?: string | null
+          execucao_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_reservas_custo_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucao_reservas_custo_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       execucao_resultados: {
         Row: {
           aprovado: boolean | null
@@ -1181,6 +1226,10 @@ export type Database = {
         Args: { _execucao_id: string }
         Returns: Json
       }
+      reconciliar_custo: {
+        Args: { _chave: string; _custo_real: number; _execucao_id: string }
+        Returns: undefined
+      }
       recuperar_etapas_expiradas: {
         Args: { _execucao_id: string }
         Returns: number
@@ -1237,6 +1286,15 @@ export type Database = {
         Returns: undefined
       }
       registry_validar: { Args: { _versao_id: string }; Returns: Json }
+      reservar_custo: {
+        Args: {
+          _chave: string
+          _custo: number
+          _etapa_id: string
+          _execucao_id: string
+        }
+        Returns: boolean
+      }
       reservar_etapa: {
         Args: { _execucao_id: string }
         Returns: {

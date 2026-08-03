@@ -19,6 +19,12 @@ import type {
   VariacaoGerada,
 } from "@/lib/agentes/especialista-base.server";
 import type { NivelEsforco } from "@/lib/provedores/tipos";
+import {
+  executarCtaSpecialist,
+  MAX_CARACTERES_CTA,
+  type CtaGerado,
+} from "@/lib/agentes/cta-specialist.server";
+import type { ResultadoEstruturado } from "@/lib/agentes/especialista-base.server";
 
 type Cliente = SupabaseClient<Database>;
 
@@ -170,6 +176,7 @@ export async function montarEntradaEspecialista(
 const FORMATO_DE_SAIDA: Record<string, string> = {
   hook_master: "hook",
   headline_architect: "headline",
+  cta_specialist: "cta",
 };
 
 export async function executarEtapaEspecialista(
@@ -206,6 +213,71 @@ export async function executarEtapaEspecialista(
       : await executarHeadlineArchitect(comum);
 
   return { resultado, modelo: args.configuracao.config.modelo };
+}
+
+/** Etapa do CTA Specialist: mesma entrada autorizada, contrato de saída próprio. */
+export async function executarEtapaCta(
+  supabase: Cliente,
+  args: {
+    configuracao: ConfiguracaoEtapaEspecialista;
+    execucaoId: string;
+    chatId: string | null;
+    formato: string;
+    vozAutorizada: boolean;
+    etapaId: string;
+    tentativa: number;
+    sinal?: AbortSignal;
+  },
+): Promise<{ resultado: ResultadoEstruturado<{ variacoes: CtaGerado[] }>; modelo: string }> {
+  const entrada = await montarEntradaEspecialista(supabase, {
+    execucaoId: args.execucaoId,
+    chatId: args.chatId,
+    formato: args.formato,
+    vozAutorizada: args.vozAutorizada,
+  });
+
+  const resultado = await executarCtaSpecialist({
+    config: args.configuracao.config,
+    entrada,
+    chaveIdempotencia: `${args.etapaId}:${args.tentativa}`,
+    ...(args.sinal ? { sinal: args.sinal } : {}),
+  });
+
+  return { resultado, modelo: args.configuracao.config.modelo };
+}
+
+/** Payload do CTA: identificador, índice e fatores são gerados pelo servidor. */
+export function resultadosDoCta(
+  execucaoId: string,
+  formatoExec: string,
+  modelo: string,
+  variacoes: CtaGerado[],
+) {
+  return variacoes.map((v, i) => {
+    const id = `cta_specialist-${i + 1}`;
+    return {
+      tipo: "variacao" as const,
+      versao: "original" as const,
+      payload: {
+        id,
+        variacao_id: id,
+        papel: "cta_specialist",
+        provedor: "anthropic",
+        modelo,
+        formato: FORMATO_DE_SAIDA['cta_specialist'] ?? formatoExec,
+        texto: v.texto.slice(0, MAX_CARACTERES_CTA),
+        tipo_acao: v.tipo_acao,
+        intensidade: v.intensidade,
+        intencao: v.intencao,
+        formato_destino: v.formato_destino,
+        alerta_promessa: v.alerta_promessa,
+        alerta_cliche: v.alerta_cliche,
+        justificativa: v.justificativa,
+        indice: i + 1,
+        fatores: fatoresDe(`${execucaoId}:${id}`),
+      },
+    };
+  });
 }
 
 /** Payload persistido: texto entregue, sem prompt, sem briefing bruto, sem raciocínio. */

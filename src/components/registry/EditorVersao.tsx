@@ -343,6 +343,14 @@ export function EditorVersao({
                   Provedor real exige orçamento maior que zero (em dólares por execução).
                 </p>
               )}
+              {real && (
+                <p className="text-xs text-muted-foreground">
+                  A reserva é feita no servidor antes de cada chamada e o teto por execução é de
+                  1,5x este valor, para caber o ciclo único de correção. Sem saldo reservado a
+                  etapa falha por orçamento esgotado, sem chamar o provedor. No máximo 3 etapas
+                  rodam em paralelo na mesma execução.
+                </p>
+              )}
             </div>
           </div>
 
