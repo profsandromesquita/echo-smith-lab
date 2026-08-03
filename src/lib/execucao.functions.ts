@@ -15,8 +15,10 @@ import {
 import {
   categoriaAutorizada,
   executarEtapaEspecialista,
+  executarEtapaCta,
   lerConfiguracaoEspecialista,
   resultadosDoEspecialista,
+  resultadosDoCta,
 } from "@/lib/agentes/especialista-etapa.server";
 import {
   executarEtapaAuditor,
