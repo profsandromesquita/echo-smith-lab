@@ -10,15 +10,12 @@ import type { ConfigOpenAI, ResultadoOpenAI } from "@/lib/agentes/openai-base.se
 import { somarUso } from "@/lib/agentes/openai-base.server";
 import {
   auditarLote,
-  corrigirLote,
   lotesDe,
   type Avaliacao,
   type ContextoAuditoria,
   type ItemParaAuditoria,
 } from "@/lib/agentes/auditor.server";
 import { executarAnalisePsicologica, type SaidaPsicologia } from "@/lib/agentes/psicologia.server";
-import { MAX_CARACTERES_HEADLINE } from "@/lib/agentes/headline-architect.server";
-import { MAX_CARACTERES_HOOK } from "@/lib/agentes/hook-master.server";
 import { USO_ZERO, type CodigoErroProvedor, type NivelEsforco, type UsoProvedor } from "@/lib/provedores/tipos";
 import type { FatoresRanking } from "@/lib/ranking";
 
@@ -164,11 +161,6 @@ export function resultadosDaPsicologia(saida: SaidaPsicologia, modelo: string) {
 }
 
 // ------------------------------------ Auditoria ------------------------------------
-
-const LIMITE_POR_PAPEL: Record<string, number> = {
-  hook_master: MAX_CARACTERES_HOOK,
-  headline_architect: MAX_CARACTERES_HEADLINE,
-};
 
 function fatoresDaAvaliacao(a: Avaliacao): FatoresRanking {
   return {
