@@ -27,6 +27,7 @@ import {
   resultadosDaPsicologia,
 } from "@/lib/agentes/openai-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
+import { executarEtapaCorrecao } from "@/lib/agentes/correcao-etapa.server";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
@@ -36,6 +37,7 @@ const categoria = z.enum([
   "texto_gerado",
   "metadados",
   "variacoes_para_auditoria",
+  "feedback_para_correcao",
 ]);
 
 function erro(mensagem: string): never {
