@@ -663,8 +663,120 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       }
     }
 
-    // ---- Auditoria com provedor real (F6C), em lotes independentes. ----
-    if (etapa.papel === "auditor") {
+    // ---- Correção única no especialista de origem (F6D). ----
+    if (etapa.papel === "correcao") {
+      const fotografiaId = execucao?.fotografia_id ?? null;
+      const autorizado = await categoriaAutorizada(
+        context.supabase,
+        fotografiaId,
+        "feedback_para_correcao",
+      );
+      if (!autorizado) {
+        await context.supabase.rpc("falhar_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _codigo_erro: "autorizacao_ausente",
+          _incerto: false,
+          _sem_retry: true,
+        });
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: "falhou",
+          codigoErro: "autorizacao_ausente",
+        };
+      }
+
+      const { data: idsEtapasCor } = await context.supabase
+        .from("execucao_etapas")
+        .select("id")
+        .eq("execucao_id", data.id);
+      const { data: diretrizes } = await context.supabase
+        .from("execucao_resultados")
+        .select("payload")
+        .in("etapa_id", (idsEtapasCor ?? []).map((e) => e.id))
+        .eq("tipo", "diretriz");
+      let diretrizPsicologica: string | null = null;
+      for (const d of diretrizes ?? []) {
+        const p = (d.payload ?? {}) as Record<string, unknown>;
+        if (p['campo'] === "diretriz_estrategica") diretrizPsicologica = String(p['texto'] ?? "");
+      }
+
+      const desfecho = await executarEtapaCorrecao(context.supabase, {
+        execucaoId: data.id,
+        formato: formatoExec,
+        etapaId: etapa.etapa_id,
+        tentativa: etapa.tentativa,
+        diretrizPsicologica,
+      });
+
+      let desfechoReal = "concluida";
+      let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+      let codigoErro: string | null = null;
+
+      if (desfecho.ok) {
+        const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _duracao_ms: desfecho.duracaoMs,
+          _resultados: desfecho.resultados as never,
+          _parcial: desfecho.lotesFalhos > 0,
+        });
+        if (eConcluir) {
+          statusEvento = "unknown_outcome";
+          codigoErro = "unknown_outcome";
+          desfechoReal = "resultado_incerto";
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "unknown_outcome",
+            _incerto: true,
+            _sem_retry: false,
+          });
+        } else if (desfecho.semOrcamento > 0) {
+          codigoErro = "orcamento_esgotado";
+        } else if (desfecho.lotesFalhos > 0) {
+          codigoErro = "correcao_parcial";
+        }
+      } else {
+        statusEvento = "erro";
+        codigoErro = desfecho.codigo ?? "provider_error";
+        const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _codigo_erro: codigoErro,
+          _incerto: false,
+          _sem_retry: desfecho.codigo ? ERROS_SEM_RETRY.has(desfecho.codigo) : false,
+        });
+        desfechoReal = String(novo ?? "pendente");
+      }
+
+      await context.supabase.rpc("registrar_evento_tecnico", {
+        _tipo: "etapa",
+        _etapa: etapa.papel,
+        _provedor: "anthropic",
+        _modelo: desfecho.modelos[0] ?? "n/a",
+        _duracao_ms: desfecho.duracaoMs,
+        _status: statusEvento,
+        _codigo_erro: codigoErro as never,
+        _tentativas: etapa.tentativa,
+        _custo: desfecho.uso.custoUsd,
+        _chat_id: (execucao?.chat_id ?? null) as never,
+        _tokens_entrada: desfecho.uso.tokensEntrada,
+        _tokens_saida: desfecho.uso.tokensSaida,
+      });
+
+      return {
+        avancou: true as const,
+        papel: etapa.papel,
+        desfecho: desfechoReal,
+        codigoErro,
+        mensagem: desfecho.ok ? null : desfecho.mensagemSegura,
+      };
+    }
+
+    // ---- Auditoria e auditoria final com provedor real (F6C/F6D), em lotes. ----
+    if (etapa.papel === "auditor" || etapa.papel === "auditoria_final") {
       const { data: linhaEtapa } = await context.supabase
         .from("execucao_etapas")
         .select("registry_versao_id")
@@ -712,6 +824,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+          alvo: etapa.papel === "auditoria_final" ? "corrigida" : "original",
         });
 
         let desfechoReal = "concluida";
