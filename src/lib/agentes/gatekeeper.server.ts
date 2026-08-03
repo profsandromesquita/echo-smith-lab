@@ -45,20 +45,20 @@ export const SCHEMA_SAIDA_GATEKEEPER: Record<string, unknown> = {
   properties: {
     suficiente: { type: "boolean" },
     lacunas: { type: "array", items: { type: "string", enum: [...LACUNAS] } },
-    pergunta_de_refinamento: { type: ["string", "null"] },
+    pergunta_de_refinamento: { type: ["string", "null"], maxLength: 300 },
     briefing_estruturado: {
       type: ["object", "null"],
       additionalProperties: false,
       required: ["publico", "dor", "promessa", "contexto", "objetivo"],
       properties: {
-        publico: { type: "string" },
-        dor: { type: "string" },
-        promessa: { type: "string" },
-        contexto: { type: "string" },
-        objetivo: { type: "string" },
+        publico: { type: "string", maxLength: 600 },
+        dor: { type: "string", maxLength: 600 },
+        promessa: { type: "string", maxLength: 600 },
+        contexto: { type: "string", maxLength: 600 },
+        objetivo: { type: "string", maxLength: 600 },
       },
     },
-    resumo_seguro: { type: "string" },
+    resumo_seguro: { type: "string", maxLength: 400 },
     sinalizadores: { type: "array", items: { type: "string", enum: [...SINALIZADORES] } },
   },
 };
