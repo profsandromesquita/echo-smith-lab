@@ -55,7 +55,7 @@ export const decidirConsentimento = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: id, error } = await context.supabase.rpc("registrar_consentimento", {
       _escopo: data.escopo,
-      _escopo_id: data.escopoId,
+      _escopo_id: data.escopoId as string,
       _categoria: data.categoria,
       _provedor: data.provedor,
       _etapa: data.etapa,
