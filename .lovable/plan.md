@@ -77,8 +77,12 @@ Hook Master e Headline Architect continuam idênticos. O Auditor lê as variaç�
 ## 7. Consentimentos
 
 Revalidação server-side antes de cada chamada, reutilizando `categoriaAutorizada` e a fotografia vinculada à execução: categoria, provedor OpenAI, modelo, papel, etapa, finalidade, termos e versão.
+
+Nova categoria de consentimento `variacoes_para_auditoria` (conteúdo gerado), adicionada ao catálogo de categorias e ao texto do modal: informa de forma explícita que textos produzidos pela Anthropic poderão ser enviados à OpenAI para avaliação, com finalidade, provedor e retenção declarados.
+
 - Analista: exige `briefing` autorizado; sem isso, `autorizacao_ausente`, sem retry, nada enviado.
-- Auditor: exige `briefing`; inclui resumo de Voz de Marca somente com `resumo_voz_marca` concedido, senão o campo vai nulo e o critério é marcado como não avaliável.
+- Auditor: antes de cada lote valida no servidor `briefing` (quando faz parte da entrada), `variacoes_para_auditoria` (obrigatória) e `resumo_voz_marca` (quando usado), além de provedor OpenAI, papel/etapa Auditor, finalidade, termos e versão. Sem autorização das variações, nenhuma auditoria externa ocorre: a etapa falha com `autorizacao_ausente`, sem retry e sem envio.
+- Sem `resumo_voz_marca`, a Voz de Marca não é enviada e o item volta com `voz_marca_avaliavel = false` e nota `null` — sem penalização.
 - Memória Local Estrita segue bloqueando exemplos locais, preferências inferidas e memória adaptativa. Sem fallback silencioso.
 
 ## 8. Segurança e prompt injection
