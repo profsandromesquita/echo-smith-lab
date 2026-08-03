@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { lerVersaoDaEtapa } from "@/lib/agentes/registry-etapa.server";
 import {
   executarGatekeeperReal,
   type ConfigGatekeeper,
@@ -21,32 +22,22 @@ export interface ConfiguracaoEtapa {
 /** Lê a configuração publicada vinculada à etapa. Nunca lê credenciais do banco. */
 export async function lerConfiguracaoEtapa(
   supabase: Cliente,
-  registryVersaoId: string | null,
+  etapaId: string | null,
 ): Promise<ConfiguracaoEtapa | null> {
-  void supabase;
-  if (!registryVersaoId) return null;
-  // O Registry é configuração da plataforma, não dado do usuário: só admin_tecnico
-  // lê por RLS. A etapa precisa da versão fixada mesmo para uma conta comum, então
-  // a leitura acontece pelo cliente privilegiado, restrita ao id já fixado na etapa.
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("registry_versoes")
-    .select("provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms")
-    .eq("id", registryVersaoId)
-    .maybeSingle();
-  if (!data) return null;
+  if (!etapaId) return null;
+  const versao = await lerVersaoDaEtapa(supabase, etapaId);
+  if (!versao) return null;
 
-  const parametros = (data.parametros ?? {}) as Record<string, unknown>;
-  const esforco = String(parametros['reasoning_effort'] ?? "low");
+  const esforco = String(versao.parametros['reasoning_effort'] ?? "low");
   return {
-    provedor: data.provedor,
+    provedor: versao.provedor,
     config: {
-      modelo: data.modelo,
-      instrucoesSistema: data.instrucoes_sistema ?? "",
+      modelo: versao.modelo,
+      instrucoesSistema: versao.instrucoesSistema,
       esforcoRaciocinio: esforco === "medium" ? "medium" : "low",
-      limiteEntrada: data.limite_entrada,
-      limiteSaida: data.limite_saida,
-      timeoutMs: data.timeout_ms,
+      limiteEntrada: versao.limiteEntrada,
+      limiteSaida: versao.limiteSaida,
+      timeoutMs: versao.timeoutMs,
     },
   };
 }
