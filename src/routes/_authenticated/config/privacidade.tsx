@@ -255,14 +255,14 @@ function Pagina() {
           impacto={
             <ul className="list-inside list-disc space-y-1 text-muted-foreground">
               {RECURSOS_LOCAIS.map((r) => (
-                <li key={r.chave}>{r.rotulo}</li>
+                <li key={r.id}>{r.rotulo}</li>
               ))}
             </ul>
           }
           aoConfirmar={async () => {
-            const r = await limparDadosLocais();
+            const removidos = await limparDadosLocais();
             setConfirmarLocais(false);
-            toast.success(`${r.removidos} item(ns) local(is) removido(s).`);
+            toast.success(`${removidos.length} item(ns) local(is) removido(s).`);
           }}
         />
 
