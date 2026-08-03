@@ -297,7 +297,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         await reconciliarOrcamento(context.supabase, {
           execucaoId: data.id,
           chave: reserva.chave,
-          custoReal: %s.uso.custoUsd,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -435,7 +435,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         await reconciliarOrcamento(context.supabase, {
           execucaoId: data.id,
           chave: reserva.chave,
-          custoReal: %s.uso.custoUsd,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -578,7 +578,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         await reconciliarOrcamento(context.supabase, {
           execucaoId: data.id,
           chave: reserva.chave,
-          custoReal: %s.uso.custoUsd,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -712,7 +712,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         await reconciliarOrcamento(context.supabase, {
           execucaoId: data.id,
           chave: reserva.chave,
-          custoReal: %s.uso.custoUsd,
+          custoReal: resultado.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -965,7 +965,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         await reconciliarOrcamento(context.supabase, {
           execucaoId: data.id,
           chave: reserva.chave,
-          custoReal: %s.uso.custoUsd,
+          custoReal: desfecho.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
