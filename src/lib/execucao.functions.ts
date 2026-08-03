@@ -1033,6 +1033,35 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       }
     }
 
+    // Sem fallback silencioso: se a etapa está fixada em uma versão de provedor real
+    // e chegou até aqui, o caminho real não foi executado e a etapa falha explicitamente.
+    {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoEtapa(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+      );
+      if (!configuracao || configuracao.provedor !== "simulado") {
+        await context.supabase.rpc("falhar_etapa", {
+          _etapa_id: etapa.etapa_id,
+          _lease_token: etapa.lease_token,
+          _codigo_erro: "configuracao_indisponivel",
+          _incerto: false,
+          _sem_retry: true,
+        });
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: "falhou",
+          codigoErro: "configuracao_indisponivel",
+        };
+      }
+    }
+
     // O adaptador do papel corrente enxerga apenas o que já foi persistido nesta execução.
     const { data: idsEtapas } = await context.supabase
       .from("execucao_etapas")
