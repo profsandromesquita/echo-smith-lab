@@ -94,7 +94,6 @@ export function criarProvedorAnthropic(): ProvedorLLM {
               effort: config.esforcoRaciocinio,
               format: {
                 type: "json_schema",
-                name: config.nomeSchema,
                 schema: config.schemaSaida,
               },
             },
