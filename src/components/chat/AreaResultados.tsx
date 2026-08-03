@@ -16,7 +16,9 @@ import { PainelRanking } from "@/components/pipeline/PainelCuradoria";
 import { LinhaDoTempoPipeline } from "@/components/pipeline/LinhaDoTempoPipeline";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { AvisoRotuloHonesto } from "@/components/privacy/Indicadores";
+import { useQuery } from "@tanstack/react-query";
 import { useDemo } from "@/lib/demo-state";
+import { opcoesModo } from "@/lib/privacidade";
 import { VARIACOES, type EtapaId, type StatusEtapa } from "@/lib/fixtures";
 
 type MapaStatus = Record<EtapaId, StatusEtapa>;
@@ -37,8 +39,9 @@ function mapa(parcial: Partial<MapaStatus>, padrao: StatusEtapa = "pendente"): M
   return { ...base, ...parcial };
 }
 
-export function AreaResultados() {
+export function AreaResultados({ chatId = null }: { chatId?: string | null }) {
   const { estado, offline } = useDemo();
+  const { data: privacidade } = useQuery(opcoesModo(chatId));
   const [consentimentoAberto, setConsentimentoAberto] = useState(false);
 
   if (offline) {
@@ -213,6 +216,8 @@ export function AreaResultados() {
           <ModalConsentimento
             aberto={consentimentoAberto}
             aoFechar={() => setConsentimentoAberto(false)}
+            chatId={chatId}
+            modo={privacidade?.modo ?? "local_estrita"}
           />
         </>
       );
