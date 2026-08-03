@@ -10,14 +10,16 @@ Substituir apenas os adaptadores simulados de **Hook Master** e **Headline Archi
 - Structured Outputs: GA na Claude API para modelos 4.5+, via `output_config.format` com `type: "json_schema"` (o antigo `output_format` e o header beta estão só em transição — usaremos a forma nova, sem header beta).
 - Contexto de 1M tokens; saída máxima de 128k por requisição.
 - Preço: US$ 10 / MTok de entrada e US$ 50 / MTok de saída.
-- Raciocínio adaptativo é sempre ativo neste modelo: **não existe** parâmetro equivalente ao `reasoning_effort` da OpenAI. O Registry não deve oferecer esse campo para Anthropic.
+- Raciocínio adaptativo é sempre ativo e **não** aceita `thinking.type` nem `budget_tokens`. O controle correto é `output_config.effort`, suportado pelo Claude Fable 5 sem header beta. Valores documentados: `max`, `high` (padrão, idêntico a omitir), `medium` e `low`. É semântica própria da Anthropic — não reaproveitamos o `reasoning_effort` da OpenAI.
+- `effort` e `format` convivem no mesmo `output_config`, então esforço e JSON Schema estrito vão juntos na mesma requisição.
+- `max_tokens` cobre o processamento adaptativo **mais** a resposta final: o limite precisa ter folga suficiente para as cinco variações completas.
 - Recusa: retorna **HTTP 200** com `stop_reason: "refusal"` e indicação do classificador. Não é erro de transporte.
 - Cobrança em recusa: não há cobrança quando a recusa ocorre antes de qualquer saída.
 - Retenção: 30 dias; o modelo é "Covered Model" e **não** está disponível sob zero data retention. Isso precisa aparecer no texto de consentimento.
 - Limites de Structured Outputs a respeitar: no máximo 24 parâmetros opcionais e 16 parâmetros com união de tipos por requisição — nossos schemas usarão campos obrigatórios e evitarão uniões.
 - `stop_reason: "max_tokens"` corta a saída e invalida o JSON: tratado como saída inválida, nunca como resultado parcial.
 
-Itens que só podem ser confirmados com a credencial na conta (primeira tarefa da implementação, antes de qualquer código de produção): disponibilidade real do modelo via `GET /v1/models`, rate limits do tier e se a conta aceita `Idempotency-Key` no Messages. Se o endpoint de modelos devolver identificador diferente, o Registry recebe o valor real — nada de suposição fixa no código.
+Itens que só podem ser confirmados com a credencial na conta (primeira tarefa da implementação, antes de qualquer código de produção): disponibilidade real do modelo via `GET /v1/models`, **quais níveis de `effort` a conta e o modelo aceitam**, rate limits do tier e se a conta aceita `Idempotency-Key` no Messages. Nenhuma versão do Registry é validada ou publicada com um nível de esforço que a resposta de capacidades da conta não confirme. Se o endpoint de modelos devolver identificador diferente, o Registry recebe o valor real — nada de suposição fixa no código.
 
 Não usaremos: Lovable AI Gateway, camada de compatibilidade OpenAI da Anthropic, nem o parâmetro `fallbacks` de fallback automático (fora do escopo desta fase).
 
@@ -28,9 +30,11 @@ Novo arquivo `src/lib/provedores/anthropic-direct.server.ts`, irmão e independe
 Tratamento próprio dentro do adaptador:
 - autenticação por `x-api-key`, lida de `process.env` dentro do handler;
 - `system` como parâmetro separado (instruções) e `messages` com o conteúdo do usuário;
-- `output_config.format` com JSON Schema estrito;
+- `output_config` com `effort` (convertido a partir da configuração do Registry) e `format` com JSON Schema estrito, no mesmo objeto;
+- nunca envia `thinking.type`, `budget_tokens` ou qualquer configuração de extended thinking manual;
+- `max_tokens` calculado com folga sobre o tamanho esperado do JSON das cinco variações;
 - leitura de `usage.input_tokens` / `output_tokens` e cálculo de custo com a tabela 10/50;
-- mapeamento de `stop_reason`: `end_turn` (ok), `refusal` (`provider_refusal`), `max_tokens` (`resposta_invalida`), qualquer outro valor vira `stop_reason_inesperado`;
+- mapeamento de `stop_reason`: `end_turn` (ok), `refusal` (`provider_refusal`), `max_tokens` (`resposta_invalida` — resultado parcial nunca é aceito, sem reparo de JSON, com tokens, duração e custo registrados e apenas uma nova tentativa controlada), qualquer outro valor vira `stop_reason_inesperado`;
 - HTTP: 401/403 → `credencial_invalida`; 404 ou 400 de modelo → `modelo_indisponivel`; 429 → `rate_limit` (lendo `retry-after`); 5xx → `provider_error`;
 - `AbortController` para timeout e cancelamento, distinguindo os dois;
 - resultado externo incerto quando a resposta chega mas a persistência falha.
@@ -81,7 +85,11 @@ Códigos distintos e mensagens seguras no padrão já existente de `MENSAGEM_ERR
 
 ## 10. Registry
 
-`anthropic` entra como terceira opção de provedor (`src/lib/registry.functions.ts`, `EditorVersao.tsx`, RPCs `registry_atualizar_rascunho` e `registry_validar`), com o padrão de modelo aceitando `claude-fable-5`. O seletor de esforço de raciocínio fica oculto para Anthropic. A validação exige instruções, schema, limites, timeout, tentativas, concorrência, orçamento maior que zero e saída estruturada. A chave nunca fica no Registry. Hook Master e Headline Architect recebem versões publicadas independentes.
+`anthropic` entra como terceira opção de provedor (`src/lib/registry.functions.ts`, `EditorVersao.tsx`, RPCs `registry_atualizar_rascunho` e `registry_validar`), com o padrão de modelo aceitando `claude-fable-5`. A chave nunca fica no Registry. Hook Master e Headline Architect recebem versões publicadas independentes.
+
+Esforço no Registry: campo próprio da Anthropic, `parametros.effort`, versionado por papel e independente do `reasoning_effort` da OpenAI (que continua exclusivo do Gatekeeper e some quando o provedor é Anthropic). O adaptador converte esse campo em `output_config.effort`. Valor inicial de Hook Master e Headline Architect: `medium`, equilibrando qualidade, latência e custo — ajustável pelo Registry e comprovado com briefings sintéticos. A validação exige instruções, schema, limites, timeout, tentativas, concorrência, orçamento maior que zero, saída estruturada e um nível de esforço confirmado pelas capacidades da conta.
+
+Teste administrativo de esforço: o teste de rascunho executa o mesmo briefing sintético em pelo menos dois níveis de esforço e registra, por nível, qualidade, latência, tokens, custo e conformidade com o schema. Continua exigindo ação explícita do administrador, avisando sobre chamada real e custo, sem conteúdo de usuário, sem execução de usuário, sem consentimento falso e sem publicação automática.
 
 ## 11. Máquina de estados
 
