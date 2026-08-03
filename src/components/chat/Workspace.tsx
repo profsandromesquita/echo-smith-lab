@@ -60,7 +60,7 @@ export function Workspace({
         <Thread mensagens={mensagens} />
       )}
       <Composer onEnviar={onEnviar} enviando={enviando} />
-      <AreaResultados />
+      <AreaResultados chatId={chatId} />
     </div>
   );
 }

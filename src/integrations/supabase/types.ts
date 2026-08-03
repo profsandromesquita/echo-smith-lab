@@ -19,6 +19,7 @@ export type Database = {
           atualizado_em: string
           criado_em: string
           id: string
+          modo_privacidade: string | null
           pasta_id: string | null
           perfil_marca_id: string | null
           titulo: string
@@ -29,6 +30,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           id?: string
+          modo_privacidade?: string | null
           pasta_id?: string | null
           perfil_marca_id?: string | null
           titulo?: string
@@ -39,6 +41,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           id?: string
+          modo_privacidade?: string | null
           pasta_id?: string | null
           perfil_marca_id?: string | null
           titulo?: string
@@ -61,6 +64,166 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      consentimentos: {
+        Row: {
+          atualizado_em: string
+          categoria: string
+          criado_em: string
+          escopo: string
+          escopo_id: string | null
+          estado: string
+          etapa: string
+          finalidade: string
+          id: string
+          provedor: string
+          termos_id: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          categoria: string
+          criado_em?: string
+          escopo: string
+          escopo_id?: string | null
+          estado: string
+          etapa: string
+          finalidade: string
+          id?: string
+          provedor: string
+          termos_id: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          categoria?: string
+          criado_em?: string
+          escopo?: string
+          escopo_id?: string | null
+          estado?: string
+          etapa?: string
+          finalidade?: string
+          id?: string
+          provedor?: string
+          termos_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consentimentos_termos_id_fkey"
+            columns: ["termos_id"]
+            isOneToOne: false
+            referencedRelation: "termos_consentimento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consentimentos_historico: {
+        Row: {
+          acao: string
+          categoria: string
+          consentimento_id: string | null
+          escopo: string
+          escopo_id: string | null
+          etapa: string
+          finalidade: string
+          id: string
+          ocorrido_em: string
+          origem: string
+          provedor: string
+          termos_id: string
+          termos_versao: number
+          user_id: string
+        }
+        Insert: {
+          acao: string
+          categoria: string
+          consentimento_id?: string | null
+          escopo: string
+          escopo_id?: string | null
+          etapa: string
+          finalidade: string
+          id?: string
+          ocorrido_em?: string
+          origem: string
+          provedor: string
+          termos_id: string
+          termos_versao: number
+          user_id?: string
+        }
+        Update: {
+          acao?: string
+          categoria?: string
+          consentimento_id?: string | null
+          escopo?: string
+          escopo_id?: string | null
+          etapa?: string
+          finalidade?: string
+          id?: string
+          ocorrido_em?: string
+          origem?: string
+          provedor?: string
+          termos_id?: string
+          termos_versao?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consentimentos_historico_termos_id_fkey"
+            columns: ["termos_id"]
+            isOneToOne: false
+            referencedRelation: "termos_consentimento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos_tecnicos: {
+        Row: {
+          chat_id: string | null
+          codigo_erro: string | null
+          criado_em: string
+          custo_estimado: number | null
+          duracao_ms: number | null
+          etapa: string | null
+          id: string
+          modelo: string | null
+          provedor: string | null
+          status: string
+          tentativas: number
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          chat_id?: string | null
+          codigo_erro?: string | null
+          criado_em?: string
+          custo_estimado?: number | null
+          duracao_ms?: number | null
+          etapa?: string | null
+          id?: string
+          modelo?: string | null
+          provedor?: string | null
+          status: string
+          tentativas?: number
+          tipo: string
+          user_id?: string
+        }
+        Update: {
+          chat_id?: string | null
+          codigo_erro?: string | null
+          criado_em?: string
+          custo_estimado?: number | null
+          duracao_ms?: number | null
+          etapa?: string | null
+          id?: string
+          modelo?: string | null
+          provedor?: string | null
+          status?: string
+          tentativas?: number
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       exemplos_marca: {
         Row: {
@@ -96,6 +259,59 @@ export type Database = {
             columns: ["perfil_id"]
             isOneToOne: false
             referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fotografias_consentimento: {
+        Row: {
+          categoria: string
+          criado_em: string
+          decisao: string
+          etapa: string
+          finalidade: string
+          fotografia_id: string
+          id: string
+          origem: string
+          provedor: string
+          termos_id: string
+          termos_versao: number
+          user_id: string
+        }
+        Insert: {
+          categoria: string
+          criado_em?: string
+          decisao: string
+          etapa: string
+          finalidade: string
+          fotografia_id: string
+          id?: string
+          origem: string
+          provedor: string
+          termos_id: string
+          termos_versao: number
+          user_id?: string
+        }
+        Update: {
+          categoria?: string
+          criado_em?: string
+          decisao?: string
+          etapa?: string
+          finalidade?: string
+          fotografia_id?: string
+          id?: string
+          origem?: string
+          provedor?: string
+          termos_id?: string
+          termos_versao?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fotografias_consentimento_termos_id_fkey"
+            columns: ["termos_id"]
+            isOneToOne: false
+            referencedRelation: "termos_consentimento"
             referencedColumns: ["id"]
           },
         ]
@@ -224,6 +440,42 @@ export type Database = {
         }
         Relationships: []
       }
+      preferencias_privacidade: {
+        Row: {
+          alerta_dados_pessoais: boolean
+          atualizado_em: string
+          bloquear_envio_com_alerta: boolean
+          criado_em: string
+          id: string
+          modo_padrao: string
+          retencao_conteudo: string
+          retencao_logs_dias: number
+          user_id: string
+        }
+        Insert: {
+          alerta_dados_pessoais?: boolean
+          atualizado_em?: string
+          bloquear_envio_com_alerta?: boolean
+          criado_em?: string
+          id?: string
+          modo_padrao?: string
+          retencao_conteudo?: string
+          retencao_logs_dias?: number
+          user_id?: string
+        }
+        Update: {
+          alerta_dados_pessoais?: boolean
+          atualizado_em?: string
+          bloquear_envio_com_alerta?: boolean
+          criado_em?: string
+          id?: string
+          modo_padrao?: string
+          retencao_conteudo?: string
+          retencao_logs_dias?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           criado_em: string
@@ -239,6 +491,69 @@ export type Database = {
           criado_em?: string
           id?: string
           nome_exibicao?: string
+        }
+        Relationships: []
+      }
+      solicitacoes_conta: {
+        Row: {
+          atualizado_em: string
+          concluido_em: string | null
+          confirmado_em: string | null
+          criado_em: string
+          estado: string
+          id: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          concluido_em?: string | null
+          confirmado_em?: string | null
+          criado_em?: string
+          estado?: string
+          id?: string
+          tipo: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          concluido_em?: string | null
+          confirmado_em?: string | null
+          criado_em?: string
+          estado?: string
+          id?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      termos_consentimento: {
+        Row: {
+          chave: string
+          corpo: string
+          criado_em: string
+          id: string
+          titulo: string
+          versao: number
+          vigente: boolean
+        }
+        Insert: {
+          chave: string
+          corpo: string
+          criado_em?: string
+          id?: string
+          titulo: string
+          versao: number
+          vigente?: boolean
+        }
+        Update: {
+          chave?: string
+          corpo?: string
+          criado_em?: string
+          id?: string
+          titulo?: string
+          versao?: number
+          vigente?: boolean
         }
         Relationships: []
       }
@@ -268,7 +583,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancelar_solicitacao_conta: { Args: { _id: string }; Returns: boolean }
       chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
+      criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -279,6 +596,38 @@ export type Database = {
       pasta_e_minha: { Args: { _pasta_id: string }; Returns: boolean }
       perfil_e_meu: {
         Args: { _perfil_id: string; _user_id: string }
+        Returns: boolean
+      }
+      registrar_consentimento: {
+        Args: {
+          _categoria: string
+          _decisao: string
+          _escopo: string
+          _escopo_id: string
+          _etapa: string
+          _finalidade: string
+          _origem: string
+          _provedor: string
+        }
+        Returns: string
+      }
+      registrar_evento_tecnico: {
+        Args: {
+          _chat_id: string
+          _codigo_erro: string
+          _custo: number
+          _duracao_ms: number
+          _etapa: string
+          _modelo: string
+          _provedor: string
+          _status: string
+          _tentativas: number
+          _tipo: string
+        }
+        Returns: undefined
+      }
+      revogar_consentimento: {
+        Args: { _id: string; _origem: string }
         Returns: boolean
       }
       show_limit: { Args: never; Returns: number }

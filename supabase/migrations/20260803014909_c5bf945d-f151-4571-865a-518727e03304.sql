@@ -1,0 +1,13 @@
+REVOKE ALL ON FUNCTION public.bloquear_alteracao() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.validar_escopo_consentimento() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.chat_coerente() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.mensagem_coerente() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.registrar_atividade_chat() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.validar_exemplo_do_dono() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.validar_perfil_do_dono() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.chat_e_meu(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_e_meu(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.pasta_e_minha(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pasta_e_minha(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.perfil_e_meu(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perfil_e_meu(uuid, uuid) TO authenticated, service_role;

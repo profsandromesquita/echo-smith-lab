@@ -1,130 +1,180 @@
-# Fase F3 — Voz de Marca persistente
+# Fase F4 — Privacidade, consentimentos, retenção e observabilidade segura (revisão 2)
 
 ## 1. Objetivo
 
-Substituir os fixtures de Voz de Marca por perfis reais e persistentes no Lovable Cloud. Cada conta mantém vários perfis (marcas ou clientes), define um padrão, associa perfil a pastas e pode substituir o perfil em um chat específico. Somente informações explícitas cadastradas pelo usuário são persistidas. Todo o conteúdo de IA, pipeline, auditoria e resultados continua simulado sob o ControleDemo.
+Estabelecer, de forma real e persistente, as regras que governarão qualquer futuro envio de dados a provedores externos: modo de privacidade por chat, consentimento informado versionado, detecção local de dados identificáveis, retenção/exportação/exclusão e logs técnicos sem conteúdo sensível.
 
-## 2. Modelo de dados
+Nenhuma API de IA é chamada. Nenhum provedor é conectado. Pipeline, auditoria e resultados continuam simulados sob o ControleDemo.
 
-**perfis_marca** (`user_id uuid not null default auth.uid()`)
+## 2. Decisões de privacidade
 
-- `id uuid pk`, `nome text not null` (1–80)
-- `descricao text` (0–1000) — identidade
-- `publico text` (0–600), `posicionamento text` (0–1000)
-- `personalidade text` (0–600), `tom_de_voz text` (0–300)
-- `preferidas text[]` — até 60 itens, cada um até 60 chars
-- `evitadas text[]` — mesmos limites
-- `principios text` (0–1500) — princípios e restrições éticas
-- `orientacoes text` (0–2000) — orientações de escrita
-- `padrao boolean not null default false`
-- `criado_em`, `atualizado_em`
+- Modo padrão de novos chats: **Memória Local Estrita**. Herança: chat → padrão da conta.
+- **Híbrido Autorizado** não envia nada sozinho: apenas habilita a possibilidade de autorização explícita, por escopo.
+- Quatro rótulos distintos e nunca intercambiáveis: **memória de estilo local**, **adaptação local**, **processamento em nuvem**, e **geração totalmente local** — esta última sempre exibida como indisponível, jamais selecionável.
+- Sem fallback silencioso: se a etapa local não puder rodar, a interface exige decisão explícita.
+- Consentimento tem versão de termos; mudança de texto gera nova versão e o registro antigo permanece no histórico.
+- Configuração atual (mutável) é separada do histórico (append-only).
 
-**exemplos_marca**
+## 3. Modelo de dados e privilégios
 
-- `id uuid pk`, `user_id`, `perfil_id uuid not null → perfis_marca(id) on delete cascade`
-- `titulo text` (0–120), `texto text not null` (1–4000)
-- `criado_em`, `atualizado_em`
-- limite de 30 exemplos por perfil, validado em função de servidor
+Todas as tabelas em `public`, RLS habilitada, políticas separadas por operação e `TO authenticated`, escopadas em `auth.uid() = user_id`. **Os GRANTs são específicos por tabela** — nenhuma tabela recebe o conjunto genérico de quatro operações. `GRANT ALL ... TO service_role` em todas; nenhum grant para `anon` em nenhuma.
 
-**Alterações em tabelas da F2**
+| Tabela | authenticated | Escrita |
+| --- | --- | --- |
+| `preferencias_privacidade` | SELECT, INSERT, UPDATE | própria linha apenas; sem DELETE |
+| `termos_consentimento` | SELECT | exclusiva de processo privilegiado |
+| `consentimentos` | SELECT | funções de servidor autenticadas |
+| `consentimentos_historico` | SELECT | INSERT só pela função de consentimento |
+| `fotografias_consentimento` | SELECT | INSERT só pela função segura |
+| `eventos_tecnicos` | SELECT (próprios) | só `registrarEvento` no servidor |
+| `solicitacoes_conta` | SELECT | criação e cancelamento por função; confirmação/conclusão só privilegiadas |
 
-- `pastas.perfil_marca_id uuid null → perfis_marca(id) on delete set null`
-- `chats.perfil_marca_id uuid null → perfis_marca(id) on delete set null` (substituição explícita do chat)
+As escritas restritas usam funções `security definer` com `set search_path = ''`, chamadas exclusivamente por server functions com `requireSupabaseAuth`; `EXECUTE` revogado de `anon`/`authenticated` nas funções internas. RLS permanece como segunda camada, nunca como justificativa para conceder operação desnecessária.
 
-Integridade:
+**preferencias_privacidade** (`unique (user_id)`) — `modo_padrao` (`local_estrita`|`hibrido_autorizado`), `alerta_dados_pessoais`, `bloquear_envio_com_alerta`, `retencao_logs_dias` (30/90/180), `retencao_conteudo`.
 
-- Índice único parcial `unique (user_id) where padrao` garante no máximo um perfil padrão por conta.
-- Trigger `before insert/update` em `pastas` e `chats` valida que o `perfil_marca_id` referenciado pertence ao mesmo `user_id` (usa função security definer `perfil_e_meu`, no mesmo padrão de `pasta_e_minha` da F2).
-- Trigger `before insert/update` em `exemplos_marca` valida que o perfil pertence ao usuário.
-- Triggers de `atualizado_em` nas duas novas tabelas.
-- Excluir perfil não apaga pasta nem chat: os vínculos viram nulos e os itens caem para a próxima regra de herança.
+**chats.modo_privacidade text null** — substituição por chat; nulo herda o padrão da conta.
 
-Índices: `perfis_marca(user_id, nome)`, único parcial de padrão, `exemplos_marca(perfil_id, criado_em)`, `pastas(perfil_marca_id)`, `chats(perfil_marca_id)`.
+**termos_consentimento** — `chave`, `versao`, `titulo`, `corpo`, `vigente`; único parcial `(chave) where vigente`. Catálogo sem `user_id`, política de leitura para autenticados.
 
-## 3. Regras de herança
+**consentimentos** — `escopo` (`conta`|`pasta`|`chat`), `escopo_id uuid null`, `categoria`, `provedor`, `etapa`, `finalidade`, `estado` (`concedido`|`recusado`|`revogado`), `termos_id`.
 
-Prioridade de resolução do perfil ativo de um chat:
+**consentimentos_historico** — espelha os campos + `acao`, `origem`, `ocorrido_em`. Sem políticas de UPDATE/DELETE e trigger `before update or delete` que levanta exceção.
+
+**fotografias_consentimento** — imutável pelo mesmo mecanismo. Guarda **uma linha por permissão autorizada**, cada uma com `categoria`, `provedor`, `etapa`, `finalidade`, `termos_id`, `termos_versao`, `origem`, `decisao`, agrupadas por `fotografia_id`. Não existe `termos_id` único global. Nenhuma coluna guarda conteúdo do briefing. Sem `chat_id` obrigatório e **sem gravação nesta fase** (ver seção 5).
+
+**eventos_tecnicos** — `tipo`, `etapa`, `provedor`, `modelo`, `duracao_ms`, `status`, `codigo_erro` (≤80 chars), `tentativas`, `custo_estimado`, `chat_id null`. Nenhum campo de texto livre. Admin técnico lê apenas agregados por função dedicada.
+
+**solicitacoes_conta** — `tipo` (`exportacao`|`exclusao_conta`), `estado` (`pendente`|`confirmada`|`concluida`|`cancelada`), `confirmado_em`, `concluido_em`.
+
+## 4. Unicidade e coerência dos consentimentos
+
+Unicidade que funciona com `escopo_id` nulo, por dois índices únicos parciais complementares:
 
 ```text
-1. chats.perfil_marca_id           -> origem: "chat"
-2. pastas.perfil_marca_id          -> origem: "pasta"
-3. perfis_marca padrao = true      -> origem: "padrao"
-4. nenhum                          -> origem: "nenhum"
+unique (user_id, categoria, provedor, etapa)
+  where escopo = 'conta' and escopo_id is null
+
+unique (user_id, escopo, escopo_id, categoria, provedor, etapa)
+  where escopo <> 'conta' and escopo_id is not null
 ```
 
-- A resolução acontece no servidor, em uma única função que devolve `{ perfil, origem }`.
-- A interface sempre exibe a origem: "herdado da pasta X", "perfil padrão", "definido neste chat", "nenhum perfil".
-- Remover a substituição do chat = gravar `null` em `chats.perfil_marca_id`, voltando à herança.
-- Trocar o padrão é operação atômica: limpa o padrão anterior e marca o novo na mesma transação.
+Validação em duas camadas — banco e função de servidor, com as mesmas regras:
 
-## 4. Políticas de acesso
+- `escopo = 'conta'` exige `escopo_id is null` (CHECK).
+- `escopo <> 'conta'` exige `escopo_id is not null` (CHECK).
+- `escopo = 'pasta'` exige pasta existente e do usuário (trigger usando `pasta_e_minha`).
+- `escopo = 'chat'` exige chat existente e do usuário (trigger usando `chat_e_meu`).
+- Combinação inválida é rejeitada no banco com exceção e na função de servidor com resposta neutra, sem revelar existência de recursos de outra conta.
 
-- `GRANT SELECT, INSERT, UPDATE, DELETE` para `authenticated`; `GRANT ALL` para `service_role`; nenhum grant para `anon`.
-- RLS habilitada nas duas tabelas novas, políticas separadas por operação, todas `TO authenticated`, escopadas em `auth.uid() = user_id` em USING e WITH CHECK.
-- WITH CHECK adicional em `pastas` e `chats`: `perfil_marca_id` nulo ou pertencente ao usuário.
-- `user_id` nunca vem do frontend: default `auth.uid()` no banco e `context.userId` nas funções de servidor com `requireSupabaseAuth`.
-- Perfil inexistente e perfil de outra conta produzem exatamente a mesma resposta neutra, sem revelar existência.
+## 5. Autorização "apenas esta execução"
 
-## 5. Rotas e componentes afetados
+Nesta fase ainda não existem `generation_run` nem jobs. Portanto:
 
-Nenhuma rota nova, nenhuma removida.
+- Consentimentos de escopo **conta** e **chat** são persistidos normalmente.
+- O modal e o fluxo de "autorizar apenas esta execução" são construídos e **simulados**: a decisão é montada em memória, exibida integralmente ao usuário e descartada ao final do fluxo simulado.
+- **Nenhuma fotografia definitiva órfã é gravada.** A tabela e a função de montagem existem, mas a gravação fica desabilitada até haver execução real.
+- Na fase de execução, a fotografia será criada de forma atômica junto à execução correspondente, preservando por permissão: categoria, provedor, etapa, finalidade, `termos_id`, versão dos termos, origem e decisão — com `termos_id` próprio quando as permissões estiverem sujeitas a termos diferentes.
 
-- `src/routes/_authenticated/config/voz-de-marca.tsx` — lista real, criar, editar, renomear, duplicar, excluir, definir padrão, gerenciar exemplos.
-- `src/routes/_authenticated/onboarding.tsx` — o passo 1 passa a criar de fato o primeiro perfil (definido como padrão) e reconhece quando já existe perfil, permitindo atualizar.
-- `src/components/layout/PainelParametros.tsx` — seletor real com opções "herdar" e perfis do usuário, mais rótulo de origem.
-- `src/components/layout/PainelPastas.tsx` — diálogo de pasta ganha o campo de perfil associado (criar e editar pasta).
-- `src/components/chat/ResumoContexto.tsx` e `src/components/chat/Workspace.tsx` — mostram o perfil resolvido e a origem, em vez do texto fixo.
-- Novos: `src/lib/marca.functions.ts` (funções de servidor), `src/lib/marca.ts` (queryOptions e tipos), formulário de perfil e diálogo de exclusão com impacto.
+Regras do modal (inalteradas): apresenta quais dados, finalidade, categoria, provedor, etapa, consequência da recusa e cancelar. Ações: apenas esta execução (simulada), este chat, a conta, recusar. Em Memória Local Estrita, `resumo_voz_marca` e `texto_gerado` ficam indisponíveis com explicação visível. Revogação em Privacidade e no painel do chat; revogar não apaga histórico.
 
-Preservados sem mudança de identidade: AppShell, MenuConta, ControleDemo, Thread, Composer, AreaResultados, CartaoVariacao, layout de três colunas.
+## 6. Detecção local de dados pessoais
 
-## 6. Estratégia para substituir fixtures
+Módulo `src/lib/pii.ts`, 100% no navegador, determinístico, sem rede:
 
-1. Remover `PERFIS_MARCA` do uso em runtime; o tipo `PerfilMarca` migra para `src/lib/marca.ts` alinhado ao schema.
-2. Manter os mesmos componentes visuais; muda só a origem dos dados.
-3. Toda leitura/escrita por funções de servidor autenticadas, com TanStack Query e invalidação (`["marca","lista"]`, `["marca","perfil",id]`, `["marca","resolvido",chatId]`).
-4. Loaders são seguros porque as rotas já vivem sob `_authenticated`.
-5. Atualização otimista apenas em renomear e definir padrão; criar, duplicar e excluir aguardam o servidor.
-6. Fixtures de pipeline em `src/lib/fixtures.ts` permanecem intactos.
+- e-mail, telefone BR, CPF e CNPJ (com dígito verificador), CEP, cartão (Luhn), URLs com identificadores, datas de nascimento, nomes próprios por heurística conservadora, e termos sensíveis de saúde relevantes ao nicho (diagnóstico, medicação, nome de paciente).
+- Cada achado: tipo, trecho, posição, confiança (`alta`/`media`). Confiança média avisa, nunca bloqueia.
+- Ações: revisar, editar, **anonimizar** (`[NOME]`, `[EMAIL]`), ignorar conscientemente (caixa marcada; registra a decisão, nunca o trecho), cancelar.
+- Texto analisado nunca sai do navegador; só contagem por tipo pode virar evento técnico, e apenas ao prosseguir.
+- Roda no Composer antes do envio simulado, com debounce e cache por hash local.
 
-## 7. Sequência de implementação
+## 7. Retenção, exportação e exclusão de dados locais
 
-1. Migração: `perfis_marca`, `exemplos_marca`, colunas em `pastas`/`chats`, grants, RLS, triggers, índices, único parcial de padrão.
-2. `marca.functions.ts`: listar, obter, criar, atualizar, renomear, duplicar, excluir (com relatório de impacto), definir padrão, CRUD de exemplos, definir perfil de pasta, definir/remover substituição do chat, resolver perfil ativo.
-3. Página de configuração de Voz de Marca com todos os estados.
-4. Seletor no painel de parâmetros e rótulo de origem no resumo contextual.
-5. Campo de perfil no gerenciamento de pasta.
-6. Onboarding real de criação/atualização do primeiro perfil.
-7. Limpeza dos fixtures de marca e validação completa.
+- Chat, pasta e perfil de marca passam a usar um diálogo destrutivo unificado com impacto explícito e confirmação por digitação nas operações irreversíveis.
+- **Dados locais — remoção seletiva por namespace, nunca varredura da origem.** Todo armazenamento local da aplicação passa a usar o prefixo `copyforja:` e um banco IndexedDB nomeado `copyforja`. A limpeza remove somente: chaves `copyforja:*` do localStorage (preferências locais, cache de detecção), os stores declarados do IndexedDB `copyforja` (`memoria-estilo`, `cache-pii`, `modelo-local`), e artefatos futuros do modelo local. A interface lista explicitamente cada recurso removido antes e depois da ação. **Preservados:** sessão de autenticação Supabase, configurações necessárias ao funcionamento e qualquer chave fora do namespace.
+- Entrada em Configurações › IA local para remover o modelo, desabilitada com rótulo honesto de indisponível.
+- `retencao_logs_dias` é armazenada e exibida; nenhuma rotina automática de expurgo é ligada nesta fase.
+- **Exportação**: função de servidor autenticada monta JSON com perfil, pastas, chats, mensagens, perfis de Voz de Marca, exemplos, preferências de privacidade e histórico de consentimentos. Exclui Secrets, dados administrativos e eventos de outras contas. Download gerado no navegador.
 
-Estados de interface cobertos: carregando, nenhum perfil, criação, edição, duplicação, exclusão com impacto, padrão, herdado da pasta, substituído no chat, erro, não encontrado, acesso a perfil de outra conta (tela neutra idêntica ao não encontrado).
+## 8. Exclusão de conta
 
-## 8. Riscos
+- Solicitação registrada, confirmação em duas etapas com digitação, e função de servidor que apaga em ordem de dependência **todos** os dados pessoais e operacionais da conta.
+- **Nenhum registro permanece vinculado ao `user_id` excluído.** Não se presume obrigação de retenção que ainda não foi definida juridicamente.
+- Enquanto não existir política jurídica aprovada, o padrão é **exclusão**. Se algum registro precisar permanecer por política futura aprovada, ele será **pseudonimizado ou anonimizado** — `user_id` substituído por identificador não reversível e colunas identificáveis removidas — nunca mantido com o vínculo original.
+- A tela informa, antes da confirmação, exatamente o que é apagado, o que eventualmente permanece de forma anonimizada, a finalidade e o prazo. Sem finalidade e prazo definidos, nada permanece.
+- Sessão encerrada ao final.
 
-- **Corrida ao definir padrão** — mitigada por operação atômica no servidor e índice único parcial.
-- **Exclusão quebrando vínculos silenciosamente** — mitigada pelo diálogo que informa quantas pastas e chats usam o perfil, permite cancelar ou escolher substituto, e por `on delete set null`.
-- **Vínculo cruzado entre contas** — mitigado por triggers de propriedade além da RLS.
-- **Sobrecarga visual do formulário** (muitos campos) — mitigada por seções colapsáveis, mantendo a simplificação aprovada.
-- **Regressão na F2** — mitigada por alterar `pastas`/`chats` apenas com colunas anuláveis e rodar a regressão completa da F2.
-- **Fixture ainda referenciado** — mitigado removendo o export usado em runtime e deixando o typecheck apontar.
+## 9. Observabilidade segura
 
-## 9. Critérios de aceite
+- Único caminho de escrita: `registrarEvento` em `src/lib/telemetria.functions.ts`, com validação Zod `.strict()` de schema fechado. Cliente não escreve na tabela.
+- Erros normalizados para códigos (`timeout`, `rate_limit`, `invalid_input`, `provider_error`, `unknown_outcome`); mensagem original nunca persiste.
+- `src/lib/error-capture.ts` revisado para não enviar corpo de mensagens nem briefing.
+- Admin técnico vê apenas agregados.
+- Teste automatizado insere briefing com PII conhecida e verifica por consulta ao banco que nenhuma linha de `eventos_tecnicos` contém esses trechos.
 
-- Vários perfis por conta persistem após recarregar, sair e entrar de novo.
-- Editar, renomear e duplicar funcionam; a duplicata nunca nasce como padrão.
-- Existe no máximo um padrão por conta, garantido pelo banco.
-- Pasta com perfil associado propaga para seus chats; chat pode substituir e voltar à herança.
-- A interface sempre informa a origem do perfil ativo.
-- Excluir perfil em uso mostra o impacto, permite cancelar, e os itens afetados caem para a próxima regra de herança sem erro.
-- Conta B não vê nem referencia perfis da conta A, inclusive por URL ou id direto.
-- Exemplos de escrita são armazenados e não são enviados a nenhum modelo.
-- F1 e F2 intactas; identidade visual, layout, responsividade e ControleDemo preservados.
-- Build, tipos e console limpos.
+## 10. Rotas e componentes afetados
 
-## 10. Testes
+Nenhuma rota nova de nível superior.
 
-Automatizados via navegador com duas contas reais: criar múltiplos perfis; editar; renomear; duplicar; definir e trocar o padrão; associar perfil a uma pasta; criar chat na pasta e confirmar herança e rótulo de origem; substituir perfil no chat; remover a substituição; excluir perfil em uso confirmando aviso de impacto e retorno à herança; persistência após recarregar e novo login; isolamento entre contas; tentativa de usar id de perfil de outra conta (resposta neutra); regressão de F1 e F2 (login, pastas, chats, mensagens, busca); regressão visual em 375, 768 e 1440 px; build, typecheck e console sem erros.
+- `src/routes/_authenticated/config/privacidade.tsx` — modo padrão real, consentimentos ativos, histórico, retenção, dados locais, exportação, exclusão de conta.
+- `src/routes/_authenticated/config/ia-local.tsx` — rótulos honestos e remoção de modelo (desabilitada).
+- `src/components/privacy/ModalConsentimento.tsx` — categoria, provedor, etapa, finalidade e consequência reais, com as quatro ações.
+- `src/components/privacy/Indicadores.tsx` — selos dos quatro rótulos.
+- Novos: `AlertaDadosPessoais.tsx`, `DialogoDestrutivo.tsx`, `HistoricoConsentimentos.tsx`.
+- `src/components/chat/Composer.tsx` — checagem local de PII antes do envio simulado.
+- `src/components/chat/ResumoContexto.tsx` — modo real do chat e origem.
+- `src/components/layout/PainelParametros.tsx` — seletor de modo por chat.
+- `PainelPastas.tsx` e diálogos de exclusão de F2/F3 — passam a usar o diálogo destrutivo unificado.
+- Novos módulos: `privacidade.functions.ts`, `privacidade.ts`, `consentimento.functions.ts`, `telemetria.functions.ts`, `pii.ts`, `armazenamento-local.ts`, `exportacao.functions.ts`.
 
-## 11. Confirmação de escopo
+Preservados: AppShell, MenuConta, ControleDemo, Thread, AreaResultados, CartaoVariacao, layout de três colunas, fixtures de pipeline.
 
-Nenhuma fase posterior será antecipada. Ficam de fora desta fase: preferências inferidas, aprendizado por favoritos e edições, few-shot dinâmico, memória adaptativa em IndexedDB, embeddings, RAG, Llama local real, processamento da Voz de Marca por modelos, pipeline, auditoria real, Registry, jobs, consentimentos avançados da F4, integrações externas, compartilhamento, times e colaboração.
+## 11. Sequência de implementação — dois checkpoints internos de uma mesma F4
+
+**Checkpoint A**
+1. Migração: tabelas, `chats.modo_privacidade`, grants específicos por tabela, RLS, triggers de imutabilidade e de propriedade, CHECKs de coerência, os dois índices únicos parciais, seed da primeira versão dos termos.
+2. `privacidade.functions.ts` + `privacidade.ts`: preferências da conta, modo por chat, resolução do modo efetivo.
+3. `consentimento.functions.ts`: conceder, recusar, revogar, listar ativos, listar histórico; montagem simulada da autorização única sem gravação.
+4. `pii.ts` + `AlertaDadosPessoais` + integração no Composer.
+5. Modal de consentimento real, indicadores de rótulo e página de Privacidade na parte de modos e consentimentos.
+6. Testes de isolamento entre contas, unicidade, coerência de escopo e integridade do histórico.
+
+**Checkpoint B**
+7. `telemetria.functions.ts` e revisão do error-capture.
+8. Exportação completa.
+9. Namespace de armazenamento local e limpeza seletiva com lista explícita.
+10. Exclusão de conta com diálogo destrutivo unificado.
+11. Regressão completa F1–F3, visual e de build.
+
+## 12. Riscos
+
+- **Falso positivo na detecção de PII** — confiança graduada, dígito verificador, sem bloqueio em confiança média.
+- **Consentimento parecer permissão automática** — escopo explícito, rótulo de validade, revogação visível.
+- **Vazamento de conteúdo em logs** — schema fechado, sem campo livre, teste de verificação.
+- **Limpeza local apagar sessão** — namespace obrigatório e lista de chaves declarada; teste que confirma sessão preservada após a limpeza.
+- **Exclusão de conta deixar resíduo vinculado** — verificação automatizada de que nenhuma tabela retém o `user_id` excluído.
+- **Regressão em F2/F3 pelo diálogo unificado** — mesmas funções de servidor, troca só da camada visual.
+
+## 13. Critérios de aceite
+
+- Modo de privacidade por chat persiste; origem (chat ou padrão) sempre exibida.
+- Consentir, recusar e revogar funcionam por escopo e ficam no histórico; histórico não é alterável nem apagável.
+- Duplicata de consentimento é impossível, inclusive no escopo conta com `escopo_id` nulo.
+- Escopo inválido ou recurso de outra conta é rejeitado no banco e na função, com resposta neutra.
+- "Apenas esta execução" é apresentada e simulada sem gravar fotografia órfã.
+- Detecção local alerta, permite editar, anonimizar, ignorar conscientemente e cancelar; nada do texto chega ao backend.
+- Cliente não consegue escrever diretamente em `consentimentos`, `consentimentos_historico`, `fotografias_consentimento`, `eventos_tecnicos` nem em `termos_consentimento`.
+- Limpeza local remove só o namespace declarado e mantém a sessão ativa.
+- Exclusão de conta não deixa nenhum registro vinculado ao `user_id`; a tela declara o que permanece, por que e por quanto tempo.
+- Exportação devolve apenas dados da própria conta.
+- Nenhuma linha de `eventos_tecnicos` contém briefing, mensagem, exemplo, prompt, resposta, token ou PII.
+- Nenhuma chamada de rede a provedor de IA em toda a fase.
+- F1–F3 intactas; identidade visual, responsividade e ControleDemo preservados; build, tipos e console limpos.
+
+## 14. Testes
+
+Duas contas reais, via navegador: trocar modo por chat e recarregar; conceder, recusar e revogar em escopos conta, pasta e chat; tentar duplicar consentimento de conta; tentar escopo `conta` com `escopo_id` preenchido e escopo `pasta` com id de outra conta; percorrer "apenas esta execução" e confirmar por consulta que nenhuma fotografia foi gravada; tentativa de INSERT direto pelo cliente nas tabelas restritas (deve falhar); briefing com e-mail, telefone e CPF válidos com alerta, anonimização, ignorar consciente e cancelamento; exportar e conferir o JSON; limpar dados locais e confirmar por inspeção que só chaves `copyforja:*` sumiram e a sessão continua; solicitar exclusão de conta, cancelar, depois concluir e verificar ausência de resíduo por `user_id`; isolamento entre contas por id direto; consulta confirmando ausência de conteúdo sensível em `eventos_tecnicos`; regressão completa de F1, F2 e F3; regressão visual em 375, 768 e 1440 px; build, typecheck e console sem erros.
+
+## 15. Confirmação de escopo
+
+Nenhuma fase posterior será antecipada e nenhuma fase nova é criada — A e B são checkpoints internos da F4. Ficam de fora: chamadas a provedores de IA, Llama local real, WebLLM, Registry de agentes, jobs, `generation_run`, pipeline real, auditoria real, ranking real, memória adaptativa, embeddings, RAG, pagamentos e colaboração.
