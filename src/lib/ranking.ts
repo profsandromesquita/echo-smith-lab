@@ -43,6 +43,31 @@ export function pontuar(fatores: FatoresRanking, pesos: Partial<FatoresRanking>)
   return Number((total > 0 ? soma / total : 0).toFixed(4));
 }
 
+/**
+ * Quando a Voz de Marca não foi autorizada, o auditor não pode avaliá-la.
+ * O fator é neutralizado: peso zero e redistribuição proporcional entre os demais.
+ */
+export function pesosNeutralizados(
+  pesos: Partial<FatoresRanking>,
+  vozMarcaAvaliavel: boolean,
+): Partial<FatoresRanking> {
+  const p = { ...PESOS_PADRAO, ...pesos };
+  if (vozMarcaAvaliavel) return p;
+  return { ...p, voz_marca: 0 };
+}
+
+/** Pontuação já com o fator de Voz de Marca neutralizado quando não avaliável. */
+export function pontuarComVoz(
+  fatores: FatoresRanking,
+  pesos: Partial<FatoresRanking>,
+  vozMarcaAvaliavel: boolean,
+): number {
+  return pontuar(
+    vozMarcaAvaliavel ? fatores : { ...fatores, voz_marca: 0 },
+    pesosNeutralizados(pesos, vozMarcaAvaliavel),
+  );
+}
+
 /** Ordenação estável: score desc, depois id asc — sempre reprodutível. */
 export function ordenar<T extends { id: string; score: number }>(itens: T[]): T[] {
   return [...itens].sort((a, b) => (b.score - a.score) || a.id.localeCompare(b.id));
