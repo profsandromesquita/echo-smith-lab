@@ -28,6 +28,7 @@ import {
 } from "@/lib/agentes/openai-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
 import { executarEtapaCorrecao } from "@/lib/agentes/correcao-etapa.server";
+import { reconciliarOrcamento, reservarOrcamentoEtapa } from "@/lib/agentes/orcamento.server";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
@@ -263,12 +264,40 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           return { avancou: true as const, papel: etapa.papel, desfecho: "falhou", codigoErro: "autorizacao_ausente" };
         }
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaGatekeeper(context.supabase, {
           configuracao,
           chatId: execucao?.chat_id ?? null,
           formato: formatoExec,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: %s.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -370,6 +399,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           "resumo_voz_marca",
         );
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaEspecialista(context.supabase, {
           papel: etapa.papel,
           configuracao,
@@ -379,6 +430,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: %s.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -486,6 +543,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           "resumo_voz_marca",
         );
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaCta(context.supabase, {
           configuracao,
           execucaoId: data.id,
@@ -494,6 +573,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: %s.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -593,6 +678,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { resultado, modelo } = await executarEtapaPsicologia(context.supabase, {
           configuracao,
           execucaoId: data.id,
@@ -600,6 +707,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           formato: formatoExec,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: %s.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
@@ -817,6 +930,28 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           "resumo_voz_marca",
         );
 
+                // reserva atômica de orçamento antes de qualquer chamada externa
+        const reserva = await reservarOrcamentoEtapa(context.supabase, {
+          execucaoId: data.id,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+        if (!reserva.reservado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "orcamento_esgotado",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "orcamento_esgotado",
+          };
+        }
+
         const { desfecho, modelo } = await executarEtapaAuditor(context.supabase, {
           configuracao,
           execucaoId: data.id,
@@ -825,6 +960,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
           alvo: etapa.papel === "auditoria_final" ? "corrigida" : "original",
+        });
+
+        await reconciliarOrcamento(context.supabase, {
+          execucaoId: data.id,
+          chave: reserva.chave,
+          custoReal: %s.uso.custoUsd,
         });
 
         let desfechoReal = "concluida";
