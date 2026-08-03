@@ -106,7 +106,7 @@ export const criarExecucao = createServerFn({ method: "POST" })
       _snapshot_marca: {},
       _snapshot_privacidade: { modo },
       _modo_privacidade: modo,
-      _permissoes: permissoes,
+      _permissoes: permissoes as never,
     });
     if (error) erro(error.message);
     return { id: id as string, modo };
@@ -215,7 +215,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         _etapa_id: etapa.etapa_id,
         _lease_token: etapa.lease_token,
         _duracao_ms: simulado.duracaoMs,
-        _resultados: simulado.resultados,
+        _resultados: simulado.resultados as never,
       });
       if (e) erro(e.message);
     } else {
@@ -237,10 +237,10 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       _modelo: `mock-${etapa.papel}`,
       _duracao_ms: simulado.duracaoMs,
       _status: status === "ok" ? "ok" : status === "erro" ? "erro" : "unknown_outcome",
-      _codigo_erro: status === "ok" ? null : status === "erro" ? "provider_error" : "unknown_outcome",
+      _codigo_erro: (status === "ok" ? null : status === "erro" ? "provider_error" : "unknown_outcome") as never,
       _tentativas: etapa.tentativa,
       _custo: 0,
-      _chat_id: null,
+      _chat_id: null as never,
     });
 
     return { avancou: true as const, papel: etapa.papel, desfecho };

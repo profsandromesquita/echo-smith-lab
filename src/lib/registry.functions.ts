@@ -97,7 +97,7 @@ export const atualizarRascunho = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.rpc("registry_atualizar_rascunho", {
       _versao_id: data.id,
-      _dados: data.dados,
+      _dados: data.dados as never,
     });
     if (error) erro(error.message);
     return { ok: true };
