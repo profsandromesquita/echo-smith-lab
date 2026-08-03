@@ -193,7 +193,12 @@ function Pagina() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setEmEdicao(rascunho as unknown as VersaoEditavel)}
+                            onClick={() =>
+                              setEmEdicao({
+                                ...(rascunho as unknown as VersaoEditavel),
+                                papel: agente.papel,
+                              })
+                            }
                           >
                             Editar rascunho
                           </Button>
@@ -235,7 +240,7 @@ function Pagina() {
       </div>
 
       <EditorVersao
-        versao={emEdicao ? { ...emEdicao, papel: emEdicao.papel } : null}
+        versao={emEdicao}
         aberto={Boolean(emEdicao)}
         aoFechar={() => setEmEdicao(null)}
       />
