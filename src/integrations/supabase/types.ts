@@ -225,6 +225,367 @@ export type Database = {
         }
         Relationships: []
       }
+      execucao_etapas: {
+        Row: {
+          backoff_base_ms: number
+          categoria_requerida: string | null
+          criado_em: string
+          depende_de: string[]
+          duracao_ms: number | null
+          entrada_resumo: Json
+          estado: string
+          execucao_id: string
+          id: string
+          lease_ate: string | null
+          lease_token: string | null
+          ordem: number
+          papel: string
+          proxima_tentativa_em: string | null
+          registry_versao_id: string
+          tentativas: number
+          tentativas_limite: number
+          timeout_ms: number
+          ultimo_codigo_erro: string | null
+        }
+        Insert: {
+          backoff_base_ms?: number
+          categoria_requerida?: string | null
+          criado_em?: string
+          depende_de?: string[]
+          duracao_ms?: number | null
+          entrada_resumo?: Json
+          estado?: string
+          execucao_id: string
+          id?: string
+          lease_ate?: string | null
+          lease_token?: string | null
+          ordem: number
+          papel: string
+          proxima_tentativa_em?: string | null
+          registry_versao_id: string
+          tentativas?: number
+          tentativas_limite?: number
+          timeout_ms?: number
+          ultimo_codigo_erro?: string | null
+        }
+        Update: {
+          backoff_base_ms?: number
+          categoria_requerida?: string | null
+          criado_em?: string
+          depende_de?: string[]
+          duracao_ms?: number | null
+          entrada_resumo?: Json
+          estado?: string
+          execucao_id?: string
+          id?: string
+          lease_ate?: string | null
+          lease_token?: string | null
+          ordem?: number
+          papel?: string
+          proxima_tentativa_em?: string | null
+          registry_versao_id?: string
+          tentativas?: number
+          tentativas_limite?: number
+          timeout_ms?: number
+          ultimo_codigo_erro?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_etapas_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucao_etapas_registry_versao_id_fkey"
+            columns: ["registry_versao_id"]
+            isOneToOne: false
+            referencedRelation: "registry_versoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucao_etapas_versao_fkey"
+            columns: ["execucao_id", "papel", "registry_versao_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_registry_versoes"
+            referencedColumns: ["execucao_id", "papel", "registry_versao_id"]
+          },
+        ]
+      }
+      execucao_eventos: {
+        Row: {
+          de: string | null
+          etapa_id: string | null
+          execucao_id: string
+          id: string
+          motivo: string | null
+          ocorrido_em: string
+          para: string
+        }
+        Insert: {
+          de?: string | null
+          etapa_id?: string | null
+          execucao_id: string
+          id?: string
+          motivo?: string | null
+          ocorrido_em?: string
+          para: string
+        }
+        Update: {
+          de?: string | null
+          etapa_id?: string | null
+          execucao_id?: string
+          id?: string
+          motivo?: string | null
+          ocorrido_em?: string
+          para?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_eventos_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucao_eventos_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execucao_fotografias: {
+        Row: {
+          criada_em: string
+          execucao_id: string | null
+          id: string
+          modo_privacidade: string
+          user_id: string
+        }
+        Insert: {
+          criada_em?: string
+          execucao_id?: string | null
+          id?: string
+          modo_privacidade: string
+          user_id?: string
+        }
+        Update: {
+          criada_em?: string
+          execucao_id?: string | null
+          id?: string
+          modo_privacidade?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_fotografias_execucao_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execucao_registry_versoes: {
+        Row: {
+          criado_em: string
+          execucao_id: string
+          id: string
+          papel: string
+          registry_versao_id: string
+        }
+        Insert: {
+          criado_em?: string
+          execucao_id: string
+          id?: string
+          papel: string
+          registry_versao_id: string
+        }
+        Update: {
+          criado_em?: string
+          execucao_id?: string
+          id?: string
+          papel?: string
+          registry_versao_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_registry_versoes_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucao_registry_versoes_registry_versao_id_fkey"
+            columns: ["registry_versao_id"]
+            isOneToOne: false
+            referencedRelation: "registry_versoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execucao_resultados: {
+        Row: {
+          aprovado: boolean | null
+          criado_em: string
+          etapa_id: string
+          id: string
+          nota_final: number | null
+          payload: Json
+          tipo: string
+          versao: string
+        }
+        Insert: {
+          aprovado?: boolean | null
+          criado_em?: string
+          etapa_id: string
+          id?: string
+          nota_final?: number | null
+          payload?: Json
+          tipo: string
+          versao?: string
+        }
+        Update: {
+          aprovado?: boolean | null
+          criado_em?: string
+          etapa_id?: string
+          id?: string
+          nota_final?: number | null
+          payload?: Json
+          tipo?: string
+          versao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_resultados_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_etapas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execucao_tentativas: {
+        Row: {
+          codigo_erro: string | null
+          encerrada_em: string | null
+          etapa_id: string
+          id: string
+          iniciada_em: string
+          lease_token: string | null
+          numero: number
+          status: string
+        }
+        Insert: {
+          codigo_erro?: string | null
+          encerrada_em?: string | null
+          etapa_id: string
+          id?: string
+          iniciada_em?: string
+          lease_token?: string | null
+          numero: number
+          status?: string
+        }
+        Update: {
+          codigo_erro?: string | null
+          encerrada_em?: string | null
+          etapa_id?: string
+          id?: string
+          iniciada_em?: string
+          lease_token?: string | null
+          numero?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucao_tentativas_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_etapas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execucoes: {
+        Row: {
+          cancelamento_solicitado_em: string | null
+          chat_id: string | null
+          criada_em: string
+          custo_estimado: number
+          custo_real: number | null
+          estado: string
+          finalizada_em: string | null
+          formato_solicitado: string
+          fotografia_id: string | null
+          id: string
+          iniciada_em: string | null
+          motivo_falha: string | null
+          snapshot_chat: Json
+          snapshot_marca: Json
+          snapshot_privacidade: Json
+          snapshot_registry: Json
+          user_id: string
+        }
+        Insert: {
+          cancelamento_solicitado_em?: string | null
+          chat_id?: string | null
+          criada_em?: string
+          custo_estimado?: number
+          custo_real?: number | null
+          estado?: string
+          finalizada_em?: string | null
+          formato_solicitado: string
+          fotografia_id?: string | null
+          id?: string
+          iniciada_em?: string | null
+          motivo_falha?: string | null
+          snapshot_chat?: Json
+          snapshot_marca?: Json
+          snapshot_privacidade?: Json
+          snapshot_registry?: Json
+          user_id?: string
+        }
+        Update: {
+          cancelamento_solicitado_em?: string | null
+          chat_id?: string | null
+          criada_em?: string
+          custo_estimado?: number
+          custo_real?: number | null
+          estado?: string
+          finalizada_em?: string | null
+          formato_solicitado?: string
+          fotografia_id?: string | null
+          id?: string
+          iniciada_em?: string | null
+          motivo_falha?: string | null
+          snapshot_chat?: Json
+          snapshot_marca?: Json
+          snapshot_privacidade?: Json
+          snapshot_registry?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucoes_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucoes_fotografia_id_fkey"
+            columns: ["fotografia_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_fotografias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exemplos_marca: {
         Row: {
           atualizado_em: string
@@ -307,6 +668,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fotografias_consentimento_pai_fkey"
+            columns: ["fotografia_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_fotografias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fotografias_consentimento_termos_id_fkey"
             columns: ["termos_id"]
@@ -494,6 +862,164 @@ export type Database = {
         }
         Relationships: []
       }
+      registry_agentes: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          descricao: string
+          id: string
+          nome_exibicao: string
+          papel: string
+          versao_publicada_id: string | null
+          versao_rascunho_id: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string
+          id?: string
+          nome_exibicao: string
+          papel: string
+          versao_publicada_id?: string | null
+          versao_rascunho_id?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string
+          id?: string
+          nome_exibicao?: string
+          papel?: string
+          versao_publicada_id?: string | null
+          versao_rascunho_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registry_agentes_versao_publicada_fkey"
+            columns: ["versao_publicada_id"]
+            isOneToOne: false
+            referencedRelation: "registry_versoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registry_agentes_versao_rascunho_fkey"
+            columns: ["versao_rascunho_id"]
+            isOneToOne: false
+            referencedRelation: "registry_versoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registry_versoes: {
+        Row: {
+          agente_id: string
+          arquivada_em: string | null
+          ativo: boolean
+          autor_id: string | null
+          backoff_base_ms: number
+          concorrencia: number
+          criado_em: string
+          editada_em: string
+          estado: string
+          fallback: Json
+          id: string
+          instrucoes_sistema: string
+          limite_entrada: number
+          limite_saida: number
+          modelo: string
+          motivo_alteracao: string
+          observacoes: string
+          orcamento_estimado: number
+          parametros: Json
+          provedor: string
+          publicada_em: string | null
+          publicada_por: string | null
+          resultado_teste: Json | null
+          resultado_validacao: Json | null
+          schema_entrada: Json
+          schema_saida: Json
+          tentativas_max: number
+          testada_em: string | null
+          timeout_ms: number
+          validada_em: string | null
+          versao: number
+        }
+        Insert: {
+          agente_id: string
+          arquivada_em?: string | null
+          ativo?: boolean
+          autor_id?: string | null
+          backoff_base_ms?: number
+          concorrencia?: number
+          criado_em?: string
+          editada_em?: string
+          estado?: string
+          fallback?: Json
+          id?: string
+          instrucoes_sistema?: string
+          limite_entrada?: number
+          limite_saida?: number
+          modelo?: string
+          motivo_alteracao?: string
+          observacoes?: string
+          orcamento_estimado?: number
+          parametros?: Json
+          provedor?: string
+          publicada_em?: string | null
+          publicada_por?: string | null
+          resultado_teste?: Json | null
+          resultado_validacao?: Json | null
+          schema_entrada?: Json
+          schema_saida?: Json
+          tentativas_max?: number
+          testada_em?: string | null
+          timeout_ms?: number
+          validada_em?: string | null
+          versao: number
+        }
+        Update: {
+          agente_id?: string
+          arquivada_em?: string | null
+          ativo?: boolean
+          autor_id?: string | null
+          backoff_base_ms?: number
+          concorrencia?: number
+          criado_em?: string
+          editada_em?: string
+          estado?: string
+          fallback?: Json
+          id?: string
+          instrucoes_sistema?: string
+          limite_entrada?: number
+          limite_saida?: number
+          modelo?: string
+          motivo_alteracao?: string
+          observacoes?: string
+          orcamento_estimado?: number
+          parametros?: Json
+          provedor?: string
+          publicada_em?: string | null
+          publicada_por?: string | null
+          resultado_teste?: Json | null
+          resultado_validacao?: Json | null
+          schema_entrada?: Json
+          schema_saida?: Json
+          tentativas_max?: number
+          testada_em?: string | null
+          timeout_ms?: number
+          validada_em?: string | null
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registry_versoes_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "registry_agentes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitacoes_conta: {
         Row: {
           atualizado_em: string
@@ -583,9 +1109,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aplicar_transicao_etapa: {
+        Args: { _etapa_id: string; _motivo: string; _para: string }
+        Returns: undefined
+      }
+      aplicar_transicao_execucao: {
+        Args: { _execucao_id: string; _motivo: string; _para: string }
+        Returns: undefined
+      }
+      cancelar_execucao: { Args: { _execucao_id: string }; Returns: undefined }
       cancelar_solicitacao_conta: { Args: { _id: string }; Returns: boolean }
       chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
+      concluir_etapa: {
+        Args: {
+          _duracao_ms: number
+          _etapa_id: string
+          _lease_token: string
+          _resultados: Json
+        }
+        Returns: undefined
+      }
+      criar_execucao: {
+        Args: {
+          _chat_id: string
+          _formato: string
+          _modo_privacidade: string
+          _permissoes: Json
+          _snapshot_chat: Json
+          _snapshot_marca: Json
+          _snapshot_privacidade: Json
+        }
+        Returns: string
+      }
       criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
+      desbloquear_etapas: {
+        Args: { _categoria: string; _execucao_id: string }
+        Returns: number
+      }
+      etapa_e_minha: { Args: { _etapa_id: string }; Returns: boolean }
+      execucao_e_minha: { Args: { _execucao_id: string }; Returns: boolean }
+      falhar_etapa: {
+        Args: {
+          _codigo_erro: string
+          _etapa_id: string
+          _incerto: boolean
+          _lease_token: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -597,6 +1168,14 @@ export type Database = {
       perfil_e_meu: {
         Args: { _perfil_id: string; _user_id: string }
         Returns: boolean
+      }
+      pesos_ranking_da_execucao: {
+        Args: { _execucao_id: string }
+        Returns: Json
+      }
+      recuperar_etapas_expiradas: {
+        Args: { _execucao_id: string }
+        Returns: number
       }
       registrar_consentimento: {
         Args: {
@@ -624,6 +1203,41 @@ export type Database = {
           _tentativas: number
           _tipo: string
         }
+        Returns: undefined
+      }
+      registry_atualizar_rascunho: {
+        Args: { _dados: Json; _versao_id: string }
+        Returns: undefined
+      }
+      registry_criar_rascunho: {
+        Args: { _base_versao_id: string; _motivo: string; _papel: string }
+        Returns: string
+      }
+      registry_descartar_rascunho: {
+        Args: { _versao_id: string }
+        Returns: undefined
+      }
+      registry_exigir_admin: { Args: never; Returns: undefined }
+      registry_publicar: {
+        Args: { _motivo: string; _versao_id: string }
+        Returns: undefined
+      }
+      registry_registrar_teste: {
+        Args: { _resultado: Json; _versao_id: string }
+        Returns: undefined
+      }
+      registry_validar: { Args: { _versao_id: string }; Returns: Json }
+      reservar_etapa: {
+        Args: { _execucao_id: string }
+        Returns: {
+          etapa_id: string
+          lease_token: string
+          papel: string
+          tentativa: number
+        }[]
+      }
+      resolver_resultado_incerto: {
+        Args: { _etapa_id: string; _retomar: boolean }
         Returns: undefined
       }
       revogar_consentimento: {

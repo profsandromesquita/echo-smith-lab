@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDemo } from "@/lib/demo-state";
 import { opcoesModo } from "@/lib/privacidade";
 import { VARIACOES, type EtapaId, type StatusEtapa } from "@/lib/fixtures";
+import { PainelExecucao } from "@/components/execucao/PainelExecucao";
 
 type MapaStatus = Record<EtapaId, StatusEtapa>;
 
@@ -40,6 +41,15 @@ function mapa(parcial: Partial<MapaStatus>, padrao: StatusEtapa = "pendente"): M
 }
 
 export function AreaResultados({ chatId = null }: { chatId?: string | null }) {
+  return (
+    <div className="space-y-4">
+      {chatId && <PainelExecucao chatId={chatId} />}
+      <ConteudoDemo chatId={chatId} />
+    </div>
+  );
+}
+
+function ConteudoDemo({ chatId = null }: { chatId?: string | null }) {
   const { estado, offline } = useDemo();
   const { data: privacidade } = useQuery(opcoesModo(chatId));
   const [consentimentoAberto, setConsentimentoAberto] = useState(false);
