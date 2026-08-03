@@ -607,6 +607,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
             _lease_token: etapa.lease_token,
             _duracao_ms: desfecho.duracaoMs,
             _resultados: desfecho.resultados as never,
+            _parcial: desfecho.lotesFalhos > 0,
           });
           if (eConcluir) {
             statusEvento = "unknown_outcome";
@@ -619,6 +620,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
               _incerto: true,
               _sem_retry: false,
             });
+          } else if (desfecho.lotesFalhos > 0) {
+            // auditoria parcial: os lotes válidos continuam persistidos
+            codigoErro = "auditoria_parcial";
           }
         } else {
           statusEvento = "erro";

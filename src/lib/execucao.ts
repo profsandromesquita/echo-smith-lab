@@ -73,5 +73,7 @@ export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
   saida_truncada: "A resposta foi interrompida por limite de tamanho e foi descartada.",
   stop_reason_inesperado: "A resposta terminou de forma inesperada e foi descartada.",
   unknown_outcome: "Não foi possível confirmar o resultado desta etapa.",
+  auditoria_parcial:
+    "Parte das variações não foi auditada. Elas ficam fora da entrega desta execução.",
   descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
 };
