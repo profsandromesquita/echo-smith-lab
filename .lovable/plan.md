@@ -27,6 +27,16 @@ Cenários de falha usam apenas mecanismos já existentes (erro de provedor, trun
 11. Segurança de metadados: respostas maliciosas tentando trocar execução, papel, formato, versão do Registry, número da correção e item original devem ser ignoradas ou rejeitadas.
 12. Regressão e escopo: roteamento por provedor inalterado, ranking determinístico, escopo local fora, nenhuma credencial em banco/logs/frontend, regressão F1–F6C, e typecheck, build, preview e console limpos.
 
+13. Isolamento entre contas: duas contas comuns reais, com JWTs independentes. Execução criada pela conta A; a conta B não pode consultar a execução, etapas, resultados, eventos ou reservas de custo; não pode avançar ou reservar etapas; não pode cancelar; não pode resolver resultado incerto; não pode acessar consentimentos; não pode acessar originais, correções, auditorias ou histórico técnico; não pode acessar custos ou telemetria da execução. Confirmar também que a conta A continua acessando e retomando normalmente a própria execução.
+
+Regra de prova para isolamento e permissões: somente JWTs reais de contas comuns. `service_role` é permitido apenas para preparar fixtures, promover papel administrativo e inspecionar depois — nunca como evidência de RLS, isolamento ou autorização.
+
+## Classificação da evidência
+
+Cada linha da matriz identifica a origem da evidência: chamada real ao provedor; cenário controlado pelo mecanismo `simular`; leitura de código ou SQL; consulta ao banco.
+
+Uma simulação percorre a mesma máquina de estados, persistência, leases, orçamento e regras de autorização da execução normal. Simulação nunca é apresentada como evidência de comportamento real do provedor externo.
+
 ## Correções
 
 Aplico somente correções mínimas para requisitos reprovados, cada uma registrada na coluna correspondente da matriz. Se algum reprovado exigir mudança estrutural, eu não implemento: reporto e devolvo a decisão.
