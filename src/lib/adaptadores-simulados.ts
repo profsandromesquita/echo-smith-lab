@@ -251,8 +251,12 @@ export function executarAdaptadorSimulado(
     };
   }
 
+  // etapas reais em nuvem (F6D): sem contrapartida simulada, nunca inventam conteúdo
+  if (papel === "correcao" || papel === "auditoria_final") {
+    return { duracaoMs, resultados: [] };
+  }
+
   if (papel === "auditor") {
-    if (contexto.formato === "__nunca__") return { duracaoMs, resultados: [] };
     const resultados: ResultadoSimulado[] = [];
     const porPapel = new Map<string, Variacao[]>();
     for (const v of estado.variacoes.values()) {

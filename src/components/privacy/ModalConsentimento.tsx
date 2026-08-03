@@ -21,7 +21,8 @@ export interface PermissaoSolicitada {
     | "resumo_voz_marca"
     | "texto_gerado"
     | "metadados"
-    | "variacoes_para_auditoria";
+    | "variacoes_para_auditoria"
+    | "feedback_para_correcao";
   provedor: string;
   etapa: string;
   finalidade: string;
@@ -32,6 +33,7 @@ const BLOQUEADAS_EM_LOCAL_ESTRITA = [
   "resumo_voz_marca",
   "texto_gerado",
   "variacoes_para_auditoria",
+  "feedback_para_correcao",
 ];
 
 export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
@@ -59,6 +61,13 @@ export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
     etapa: "Auditoria",
     finalidade:
       "Enviar ao provedor de nuvem A as variações escritas pelo provedor de nuvem B (Anthropic) para avaliação de qualidade e conformidade",
+  },
+  {
+    categoria: "feedback_para_correcao",
+    provedor: "Provedor de nuvem B (Anthropic)",
+    etapa: "Correção única",
+    finalidade:
+      "Enviar ao provedor de nuvem B as observações da auditoria feita pelo provedor de nuvem A, junto do texto reprovado, para uma única correção",
   },
 ];
 

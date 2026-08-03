@@ -75,5 +75,9 @@ export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
   unknown_outcome: "Não foi possível confirmar o resultado desta etapa.",
   auditoria_parcial:
     "Parte das variações não foi auditada. Elas ficam fora da entrega desta execução.",
+  correcao_parcial:
+    "Parte das variações reprovadas não pôde ser corrigida. As demais correções foram mantidas.",
+  orcamento_esgotado:
+    "O orçamento desta execução acabou antes de corrigir todas as variações reprovadas.",
   descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
 };
