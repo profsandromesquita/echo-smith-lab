@@ -13,6 +13,8 @@ export type PapelAgente =
   | "headline_architect"
   | "cta_specialist"
   | "auditor"
+  | "correcao"
+  | "auditoria_final"
   | "adaptador_local"
   | "validador_preservacao"
   | "ranking"
@@ -25,6 +27,8 @@ export const ROTULO_PAPEL: Record<PapelAgente, string> = {
   headline_architect: "Headline Architect",
   cta_specialist: "Especialista em CTA",
   auditor: "Auditoria",
+  correcao: "Correção única",
+  auditoria_final: "Auditoria final",
   adaptador_local: "Adaptação local",
   validador_preservacao: "Validação de preservação",
   ranking: "Ranking determinístico",
@@ -38,6 +42,8 @@ export const PAPEL_LOCAL: Record<PapelAgente, boolean> = {
   headline_architect: false,
   cta_specialist: false,
   auditor: false,
+  correcao: false,
+  auditoria_final: false,
   adaptador_local: true,
   validador_preservacao: true,
   ranking: true,
@@ -246,6 +252,7 @@ export function executarAdaptadorSimulado(
   }
 
   if (papel === "auditor") {
+    if (contexto.formato === "__nunca__") return { duracaoMs, resultados: [] };
     const resultados: ResultadoSimulado[] = [];
     const porPapel = new Map<string, Variacao[]>();
     for (const v of estado.variacoes.values()) {
