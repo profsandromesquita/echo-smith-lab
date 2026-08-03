@@ -1169,6 +1169,10 @@ export type Database = {
         Args: { _perfil_id: string; _user_id: string }
         Returns: boolean
       }
+      pesos_ranking_da_execucao: {
+        Args: { _execucao_id: string }
+        Returns: Json
+      }
       recuperar_etapas_expiradas: {
         Args: { _execucao_id: string }
         Returns: number
