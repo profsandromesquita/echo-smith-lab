@@ -134,10 +134,10 @@ Alterados:
 6. Módulos do Auditor (schema por item, validação, alertas).
 7. Nova categoria de consentimento `variacoes_para_auditoria` (migração, fotografia e modal).
 8. Roteamento real do Auditor em lotes por formato, com validação de integridade e persistência por lote.
-8. Consumo do feedback real pela correção simulada e pelo ranking.
-9. Testes administrativos sintéticos dos dois papéis.
-10. Ajustes de interface e mensagens seguras.
-11. Regressão F1–F6B, build, tipos e console.
+9. Consumo do feedback real pela correção simulada e pelo ranking.
+10. Testes administrativos sintéticos dos dois papéis.
+11. Ajustes de interface e mensagens seguras.
+12. Regressão F1–F6B, build, tipos e console.
 
 ## 16. Riscos
 
