@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { executarAdaptadorSimulado, type PapelAgente } from "@/lib/adaptadores-simulados";
 import { testarGatekeeperSintetico } from "@/lib/agentes/gatekeeper-teste.server";
 import { testarEspecialistaSintetico } from "@/lib/agentes/especialista-teste.server";
+import { testarPapelOpenAISintetico } from "@/lib/agentes/openai-teste.server";
 
 const uuid = z.string().uuid();
 
@@ -146,6 +147,16 @@ export const testarRascunho = createServerFn({ method: "POST" })
 
     if (versao?.provedor === "openai") {
       if (!data.confirmarChamadaReal) erro("Confirme o teste: ele faz uma chamada real e gera custo.");
+      if (data.papel === "analise_psicologica" || data.papel === "auditor") {
+        const real = await testarPapelOpenAISintetico(data.papel, versao, data.esforcoComparado);
+        const { error } = await context.supabase.rpc("registry_registrar_teste", {
+          _versao_id: data.id,
+          _resultado: { ...real, administrativo: true, briefing: "sintetico" } as never,
+        });
+        if (error) erro(error.message);
+        return { ...real, administrativo: true };
+      }
+      if (data.papel !== "gatekeeper") erro("Este papel ainda não usa o provedor OpenAI.");
       const real = await testarGatekeeperSintetico(versao);
       const { error } = await context.supabase.rpc("registry_registrar_teste", {
         _versao_id: data.id,
