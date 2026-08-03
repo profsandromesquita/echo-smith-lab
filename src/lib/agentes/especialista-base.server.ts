@@ -68,8 +68,9 @@ export function schemaVariacoes(maxCaracteres: number): Record<string, unknown> 
     properties: {
       variacoes: {
         type: "array",
-        minItems: 5,
-        maxItems: 5,
+        // a API não aceita minItems/maxItems maiores que 1: a contagem exata
+        // é exigida nas instruções e revalidada localmente
+        minItems: 1,
         items: {
           type: "object",
           additionalProperties: false,
