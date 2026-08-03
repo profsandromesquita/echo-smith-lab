@@ -18,11 +18,23 @@ import {
   lerConfiguracaoEspecialista,
   resultadosDoEspecialista,
 } from "@/lib/agentes/especialista-etapa.server";
+import {
+  executarEtapaAuditor,
+  executarEtapaPsicologia,
+  lerConfiguracaoOpenAI,
+  resultadosDaPsicologia,
+} from "@/lib/agentes/openai-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
-const categoria = z.enum(["briefing", "resumo_voz_marca", "texto_gerado", "metadados"]);
+const categoria = z.enum([
+  "briefing",
+  "resumo_voz_marca",
+  "texto_gerado",
+  "metadados",
+  "variacoes_para_auditoria",
+]);
 
 function erro(mensagem: string): never {
   throw new Error(mensagem);
