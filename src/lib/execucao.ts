@@ -80,4 +80,6 @@ export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
   orcamento_esgotado:
     "O orçamento desta execução acabou antes de corrigir todas as variações reprovadas.",
   descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
+  configuracao_indisponivel:
+    "A configuração do agente não pôde ser lida. A etapa foi interrompida sem substituir por simulação.",
 };
