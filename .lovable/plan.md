@@ -151,7 +151,10 @@ Alterados:
 
 - Analista e Auditor executam com chamada real ao GPT-5.6 Sol, versões publicadas no Registry.
 - Diretriz real chega aos especialistas Anthropic; notas reais chegam ao ranking determinístico.
-- Sem consentimento, nada é enviado e a etapa falha com mensagem segura.
+- Sem consentimento, nada é enviado e a etapa falha com mensagem segura; sem `variacoes_para_auditoria` não há auditoria externa.
+- Nenhuma avaliação com id duplicado, ausente, desconhecido ou órfão é aceita; lote inválido é descartado inteiro.
+- Voz de Marca não autorizada retorna `voz_marca_avaliavel = false` com nota `null`, neutralizada no ranking e exibida como "não avaliado".
+- Falha em um lote/formato não apaga auditorias já persistidas de outro; a execução pode ficar parcialmente concluída.
 - Recusa, saída inválida ou truncada nunca viram diretriz ou nota inventada.
 - Correção única preservada; item reprovado após a correção fica fora da curadoria.
 - Interface mostra apenas estados seguros; nenhum raciocínio ou payload bruto.
@@ -159,7 +162,7 @@ Alterados:
 
 ## 18. Testes
 
-Análise isolada; auditoria isolada; pipeline completo com Gatekeeper, Analista, especialistas e Auditor reais; briefing suficiente e insuficiente; conteúdo sensível; prevenção de diagnóstico; injeção no briefing e dentro de uma variação; notas 0–10; aprovação, reprovação, instrução de correção, correção única, item fora da curadoria; ranking com notas reais; consentimento ausente e concedido; Voz de Marca autorizada e não autorizada; recusa; saída inválida; saída truncada; timeout; rate limit; retry; cancelamento; resposta tardia; `unknown_outcome`; custo; isolamento entre contas; testes administrativos sintéticos; nenhuma chamada ao Llama; regressão F1–F6B; build, tipos e console limpos.
+Análise isolada; auditoria isolada; pipeline completo com Gatekeeper, Analista, especialistas e Auditor reais; briefing suficiente e insuficiente; conteúdo sensível; prevenção de diagnóstico; injeção no briefing e dentro de uma variação; notas 0–10; aprovação, reprovação, instrução de correção, correção única, item fora da curadoria; ranking com notas reais; consentimento ausente e concedido; consentimento de `variacoes_para_auditoria` negado (nenhum envio) e concedido; Voz de Marca autorizada e não autorizada (`voz_marca_avaliavel = false` sem penalização); avaliações com id duplicado, ausente, desconhecido e órfão; lotes por formato com falha isolada e persistência parcial; recusa; saída inválida; saída truncada; timeout; rate limit; retry; cancelamento; resposta tardia; `unknown_outcome`; custo; isolamento entre contas; testes administrativos sintéticos; nenhuma chamada ao Llama; regressão F1–F6B; build, tipos e console limpos.
 
 ## 19. Confirmação de escopo
 
