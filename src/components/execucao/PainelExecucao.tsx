@@ -23,6 +23,7 @@ import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { IndicadorProcessamento } from "@/components/privacy/Indicadores";
 import { PAPEL_LOCAL, ROTULO_PAPEL, type PapelAgente } from "@/lib/adaptadores-simulados";
 import {
+  MENSAGEM_ERRO_ETAPA,
   ROTULO_ESTADO_EXECUCAO,
   chavesExecucao,
   opcoesExecucao,
@@ -118,6 +119,10 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   const estado = (detalhe.data?.execucao.estado ?? null) as EstadoExecucao | null;
   const etapas = detalhe.data?.etapas ?? [];
   const resultados = detalhe.data?.resultados ?? [];
+
+  const gatekeeper = resultados
+    .map((r) => (r.payload ?? {}) as Record<string, unknown>)
+    .find((p) => p['campo'] === "gatekeeper");
 
   // O avanço exige esta aba aberta: não há processo de fundo no servidor.
   useEffect(() => {
@@ -277,6 +282,23 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           </Alert>
         )}
 
+        {gatekeeper && (
+          <Alert>
+            <HelpCircle aria-hidden />
+            <AlertTitle>
+              {gatekeeper['suficiente'] ? "Briefing suficiente" : "Aguardando complemento"}
+            </AlertTitle>
+            <AlertDescription>
+              {gatekeeper['suficiente']
+                ? String(gatekeeper['resumo'] ?? "Briefing estruturado pronto para as próximas etapas.")
+                : String(
+                    gatekeeper['pergunta_de_refinamento'] ??
+                      "Faltam informações essenciais no briefing.",
+                  )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <ol className="space-y-1">
           {etapas.map((etapa, indice) => {
             const atual = etapa.estado as EstadoEtapa;
@@ -307,7 +329,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
                   </div>
                   {etapa.ultimo_codigo_erro && (
                     <p className="text-xs text-muted-foreground">
-                      Último erro: {etapa.ultimo_codigo_erro}
+                      {MENSAGEM_ERRO_ETAPA[etapa.ultimo_codigo_erro] ?? "Falha temporária nesta etapa."}
                       {etapa.proxima_tentativa_em ? " — nova tentativa agendada" : ""}
                     </p>
                   )}

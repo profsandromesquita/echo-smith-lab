@@ -57,3 +57,19 @@ export const ROTULO_ESTADO_ETAPA: Record<EstadoEtapa, string> = {
   cancelada: "Cancelada",
   resultado_incerto: "Resultado incerto",
 };
+
+/** Tradução segura de códigos técnicos para o usuário final. Nada de payload ou stack. */
+export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
+  autorizacao_ausente: "Autorização necessária para enviar o briefing.",
+  credencial_ausente: "Integração de IA ainda não configurada. Nada foi enviado.",
+  credencial_invalida: "Integração de IA indisponível no momento.",
+  config_ausente: "Configuração do agente indisponível.",
+  modelo_indisponivel: "O modelo configurado está indisponível no momento.",
+  rate_limit: "Limite de uso atingido. Nova tentativa em instantes.",
+  timeout: "A análise demorou mais que o esperado.",
+  provider_error: "Falha temporária na análise do briefing.",
+  resposta_invalida: "A resposta veio fora do formato esperado e foi descartada.",
+  provider_refusal: "O provedor recusou analisar este briefing. Revise o conteúdo.",
+  unknown_outcome: "Não foi possível confirmar o resultado desta etapa.",
+  descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
+};

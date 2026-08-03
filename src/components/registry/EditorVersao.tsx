@@ -14,6 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { chavesRegistry } from "@/lib/registry";
 import {
@@ -28,7 +35,10 @@ export interface VersaoEditavel {
   papel: string;
   versao: number;
   ativo: boolean;
+  provedor: string;
   modelo: string;
+  instrucoes_sistema: string | null;
+  parametros: Record<string, unknown> | null;
   limite_entrada: number;
   limite_saida: number;
   timeout_ms: number;
@@ -63,6 +73,8 @@ export function EditorVersao({
   const [problemas, setProblemas] = useState<string[]>([]);
   const [validada, setValidada] = useState(false);
   const [testada, setTestada] = useState(false);
+  const [esforco, setEsforco] = useState("low");
+  const [confirmarReal, setConfirmarReal] = useState(false);
 
   useEffect(() => {
     setForm(versao);
@@ -70,6 +82,8 @@ export function EditorVersao({
     setProblemas([]);
     setValidada(false);
     setTestada(false);
+    setConfirmarReal(false);
+    setEsforco(String((versao?.parametros as Record<string, unknown> | null)?.['reasoning_effort'] ?? "low"));
   }, [versao]);
 
   const invalidar = () => cliente.invalidateQueries({ queryKey: chavesRegistry.raiz });
@@ -82,7 +96,13 @@ export function EditorVersao({
           id: form.id,
           dados: {
             ativo: form.ativo,
+            provedor: form.provedor as "simulado" | "openai",
             modelo: form.modelo,
+            instrucoes_sistema: form.instrucoes_sistema ?? "",
+            parametros:
+              form.provedor === "openai"
+                ? { ...(form.parametros ?? {}), reasoning_effort: esforco, structured_outputs: true }
+                : { ...(form.parametros ?? {}) },
             limite_entrada: Number(form.limite_entrada),
             limite_saida: Number(form.limite_saida),
             timeout_ms: Number(form.timeout_ms),
@@ -116,10 +136,21 @@ export function EditorVersao({
   });
 
   const testar = useMutation({
-    mutationFn: () => testarRascunho({ data: { id: form!.id, papel: form!.papel as never } }),
+    mutationFn: () =>
+      testarRascunho({
+        data: {
+          id: form!.id,
+          papel: form!.papel as never,
+          confirmarChamadaReal: form!.provedor === "openai" && confirmarReal,
+        },
+      }),
     onSuccess: (r) => {
       setTestada(true);
-      toast.success(`Teste simulado concluído em ${r.duracao_ms} ms.`);
+      toast.success(
+        r.administrativo
+          ? `Teste real concluído em ${r.duracao_ms} ms com briefing sintético.`
+          : `Teste simulado concluído em ${r.duracao_ms} ms.`,
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -135,6 +166,8 @@ export function EditorVersao({
   });
 
   if (!form) return null;
+
+  const real = form.provedor === "openai";
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
@@ -164,6 +197,26 @@ export function EditorVersao({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="provedor">Provedor</Label>
+            <Select
+              value={form.provedor}
+              onValueChange={(v) => setForm({ ...form, provedor: v })}
+            >
+              <SelectTrigger id="provedor">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="simulado">Simulado</SelectItem>
+                <SelectItem value="openai">OpenAI (API oficial)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Nesta fase apenas o Gatekeeper pode usar provedor real. A credencial fica em Secrets e
+              nunca é gravada aqui.
+            </p>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="modelo">Modelo configurado</Label>
             <Input
               id="modelo"
@@ -171,8 +224,33 @@ export function EditorVersao({
               onChange={(e) => setForm({ ...form, modelo: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              Nesta fase só identificadores simulados (prefixo mock-) são aceitos.
+              Simulado usa o prefixo mock-. Para OpenAI, use gpt-5.6-sol.
             </p>
+          </div>
+
+          {real && (
+            <div className="grid gap-2">
+              <Label htmlFor="esforco">Esforço de raciocínio</Label>
+              <Select value={esforco} onValueChange={setEsforco}>
+                <SelectTrigger id="esforco">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Baixo (triagem)</SelectItem>
+                  <SelectItem value="medium">Médio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="instrucoes">Instruções do sistema</Label>
+            <Textarea
+              id="instrucoes"
+              rows={4}
+              value={form.instrucoes_sistema ?? ""}
+              onChange={(e) => setForm({ ...form, instrucoes_sistema: e.target.value })}
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -198,6 +276,11 @@ export function EditorVersao({
                 value={String(form.orcamento_estimado)}
                 onChange={(e) => setForm({ ...form, orcamento_estimado: e.target.value })}
               />
+              {real && (
+                <p className="text-xs text-muted-foreground">
+                  Provedor real exige orçamento maior que zero (em dólares por execução).
+                </p>
+              )}
             </div>
           </div>
 
@@ -224,6 +307,26 @@ export function EditorVersao({
               </AlertDescription>
             </Alert>
           )}
+
+          {real && (
+            <Alert>
+              <AlertTitle>O teste faz uma chamada real</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Usa apenas briefing sintético, não cria execução de usuário e pode gerar custo no
+                  provedor.
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={confirmarReal}
+                    onCheckedChange={setConfirmarReal}
+                    aria-label="Confirmar chamada real"
+                  />
+                  Confirmo a chamada real
+                </label>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
@@ -236,9 +339,9 @@ export function EditorVersao({
           <Button
             variant="outline"
             onClick={() => testar.mutate()}
-            disabled={!validada || testar.isPending}
+            disabled={!validada || testar.isPending || (real && !confirmarReal)}
           >
-            Testar simulado
+            {real ? "Testar com chamada real" : "Testar simulado"}
           </Button>
           <Button
             onClick={() => publicar.mutate()}

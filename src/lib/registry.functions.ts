@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { executarAdaptadorSimulado, type PapelAgente } from "@/lib/adaptadores-simulados";
+import { testarGatekeeperSintetico } from "@/lib/agentes/gatekeeper-teste.server";
 
 const uuid = z.string().uuid();
 
@@ -21,7 +22,12 @@ const papel = z.enum([
 const camposEditaveis = z
   .object({
     ativo: z.boolean().optional(),
-    modelo: z.string().trim().regex(/^mock-[a-z0-9_-]+$/).optional(),
+    provedor: z.enum(["simulado", "openai"]).optional(),
+    modelo: z
+      .string()
+      .trim()
+      .regex(/^(mock-[a-z0-9_-]+|gpt-5\.6|gpt-5\.6-sol)$/)
+      .optional(),
     instrucoes_sistema: z.string().trim().max(8000).optional(),
     schema_entrada: z.record(z.string(), z.unknown()).optional(),
     schema_saida: z.record(z.string(), z.unknown()).optional(),
@@ -54,7 +60,7 @@ export const listarRegistry = createServerFn({ method: "GET" })
       context.supabase
         .from("registry_versoes")
         .select(
-          "id, agente_id, versao, estado, ativo, provedor, modelo, limite_entrada, limite_saida, timeout_ms, tentativas_max, backoff_base_ms, concorrencia, orcamento_estimado, validada_em, testada_em, publicada_em, publicada_por, arquivada_em, editada_em, motivo_alteracao, autor_id",
+          "id, agente_id, versao, estado, ativo, provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms, tentativas_max, backoff_base_ms, concorrencia, orcamento_estimado, validada_em, testada_em, publicada_em, publicada_por, arquivada_em, editada_em, motivo_alteracao, autor_id",
         )
         .order("versao", { ascending: false }),
     ]);
@@ -112,11 +118,34 @@ export const validarRascunho = createServerFn({ method: "POST" })
     return r as { ok: boolean; problemas?: string[] };
   });
 
-/** Teste antes de publicar: roda o adaptador simulado do papel. Nenhum provedor real. */
+/**
+ * Teste antes de publicar. Versões simuladas rodam o adaptador simulado.
+ * Versões com provedor real fazem uma chamada real com briefing sintético,
+ * iniciada explicitamente pelo administrador técnico e sem dados de usuários.
+ */
 export const testarRascunho = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: uuid, papel }).strict().parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ id: uuid, papel, confirmarChamadaReal: z.boolean().default(false) }).strict().parse(d),
+  )
   .handler(async ({ context, data }) => {
+    const { data: versao } = await context.supabase
+      .from("registry_versoes")
+      .select("provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    if (versao?.provedor === "openai") {
+      if (!data.confirmarChamadaReal) erro("Confirme o teste: ele faz uma chamada real e gera custo.");
+      const real = await testarGatekeeperSintetico(versao);
+      const { error } = await context.supabase.rpc("registry_registrar_teste", {
+        _versao_id: data.id,
+        _resultado: { ...real, administrativo: true, briefing: "sintetico" },
+      });
+      if (error) erro(error.message);
+      return { ...real, administrativo: true };
+    }
+
     const simulado = executarAdaptadorSimulado(data.papel as PapelAgente, {
       execucaoId: data.id,
       formato: "teste",
@@ -132,7 +161,7 @@ export const testarRascunho = createServerFn({ method: "POST" })
       _resultado: resultado,
     });
     if (error) erro(error.message);
-    return resultado;
+    return { ...resultado, administrativo: false };
   });
 
 export const publicarRascunho = createServerFn({ method: "POST" })
