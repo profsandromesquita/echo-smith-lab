@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DetalhesTecnicos } from "@/components/execucao/DetalhesTecnicos";
+import { CuradoriaExecucao } from "@/components/execucao/CuradoriaExecucao";
+import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { IndicadorProcessamento } from "@/components/privacy/Indicadores";
 import { PAPEL_LOCAL, ROTULO_PAPEL, type PapelAgente } from "@/lib/adaptadores-simulados";
 import {
@@ -32,6 +34,7 @@ import {
   avancarExecucao,
   cancelarExecucao,
   criarExecucao,
+  desbloquearEtapas,
   resolverIncerto,
 } from "@/lib/execucao.functions";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
@@ -71,6 +74,7 @@ const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento"];
 export function PainelExecucao({ chatId }: { chatId: string }) {
   const cliente = useQueryClient();
   const [formato, setFormato] = useState<string>("hook");
+  const [autorizando, setAutorizando] = useState(false);
   const avancando = useRef(false);
 
   const ativa = useQuery(opcoesExecucaoAtiva(chatId));
@@ -105,8 +109,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const desbloquear = useMutation({
+    mutationFn: (v: { id: string; categoria: "briefing" }) => desbloquearEtapas({ data: v }),
+    onSuccess: invalidar,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const estado = (detalhe.data?.execucao.estado ?? null) as EstadoExecucao | null;
   const etapas = detalhe.data?.etapas ?? [];
+  const resultados = detalhe.data?.resultados ?? [];
 
   // O avanço exige esta aba aberta: não há processo de fundo no servidor.
   useEffect(() => {
@@ -197,12 +208,34 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           <Alert>
             <Lock aria-hidden />
             <AlertTitle>Etapas bloqueadas por falta de autorização</AlertTitle>
-            <AlertDescription>
+            <AlertDescription className="space-y-2">
+              <p>
               Só as etapas que dependem da categoria recusada ficam paradas. Autorize em
               Privacidade para liberar — nada é enviado por conta própria.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setAutorizando(true)}>
+                Ver o que seria enviado
+              </Button>
             </AlertDescription>
           </Alert>
         )}
+
+        <ModalConsentimento
+          aberto={autorizando}
+          chatId={chatId}
+          permissoes={[
+            {
+              categoria: "briefing",
+              provedor: "Provedor de nuvem A",
+              etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
+              finalidade: "Interpretar o briefing e produzir as variações auditadas",
+            },
+          ]}
+          aoFechar={() => {
+            setAutorizando(false);
+          }}
+          aoConceder={() => desbloquear.mutate({ id: execucaoId, categoria: "briefing" })}
+        />
 
         {incerta && (
           <Alert>
@@ -298,6 +331,8 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
             </p>
           </CollapsibleContent>
         </Collapsible>
+
+        <CuradoriaExecucao resultados={resultados} />
       </CardContent>
     </Card>
   );

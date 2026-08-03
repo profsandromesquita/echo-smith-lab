@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { executarAdaptadorSimulado, type PapelAgente } from "@/lib/adaptadores-simulados";
+import {
+  executarAdaptadorSimulado,
+  type PapelAgente,
+  type ResultadoAnterior,
+} from "@/lib/adaptadores-simulados";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
@@ -141,13 +145,14 @@ export const obterExecucao = createServerFn({ method: "GET" })
         .limit(60),
       context.supabase
         .from("execucao_resultados")
-        .select("id, etapa_id, tipo, payload, versao, aprovado, nota_final")
+        .select("id, etapa_id, tipo, payload, versao, aprovado, nota_final, criado_em")
         .in(
           "etapa_id",
           (
             await context.supabase.from("execucao_etapas").select("id").eq("execucao_id", data.id)
           ).data?.map((e) => e.id) ?? [],
-        ),
+        )
+        .order("criado_em"),
     ]);
 
     return {
@@ -202,9 +207,21 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .maybeSingle();
 
+    // O adaptador do papel corrente enxerga apenas o que já foi persistido nesta execução.
+    const { data: idsEtapas } = await context.supabase
+      .from("execucao_etapas")
+      .select("id")
+      .eq("execucao_id", data.id);
+    const { data: anteriores } = await context.supabase
+      .from("execucao_resultados")
+      .select("tipo, payload, versao, aprovado, nota_final")
+      .in("etapa_id", (idsEtapas ?? []).map((e) => e.id))
+      .order("criado_em");
+
     const simulado = executarAdaptadorSimulado(etapa.papel as PapelAgente, {
       execucaoId: data.id,
       formato: execucao?.formato_solicitado ?? "hook",
+      anteriores: (anteriores ?? []) as ResultadoAnterior[],
     });
 
     let status: "ok" | "erro" | "unknown_outcome" = "ok";
