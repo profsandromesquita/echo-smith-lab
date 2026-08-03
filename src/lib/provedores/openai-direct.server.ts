@@ -103,7 +103,7 @@ export function criarProvedorOpenAI(): ProvedorLLM {
             // instruções do sistema separadas do conteúdo do usuário
             instructions: config.instrucoesSistema,
             input: [{ role: "user", content: config.conteudoUsuario }],
-            reasoning: { effort: config.esforcoRaciocinio },
+            reasoning: { effort: config.esforcoRaciocinio === "low" ? "low" : "medium" },
             max_output_tokens: config.limiteSaida,
             text: {
               format: {

@@ -125,7 +125,7 @@ const CRITERIOS: Array<keyof FatoresRanking> = [
   "confianca",
 ];
 
-function fatoresDe(chave: string): FatoresRanking {
+export function fatoresDe(chave: string): FatoresRanking {
   const f = {} as FatoresRanking;
   for (const c of CRITERIOS) f[c] = faixa(`${chave}:${c}`, 5, 10);
   return f;

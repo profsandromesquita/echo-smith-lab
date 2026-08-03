@@ -1,6 +1,6 @@
 /**
  * Contrato de provedor de LLM, desacoplado de fornecedor.
- * F6A implementa somente o adaptador direto da OpenAI.
+ * F6A: adaptador direto da OpenAI. F6B: adaptador direto da Anthropic.
  */
 
 export type CodigoErroProvedor =
@@ -13,6 +13,8 @@ export type CodigoErroProvedor =
   | "provider_error"
   | "resposta_invalida"
   | "provider_refusal"
+  | "saida_truncada"
+  | "stop_reason_inesperado"
   | "cancelado"
   | "unknown_outcome";
 
@@ -23,6 +25,8 @@ export const ERROS_SEM_RETRY: ReadonlySet<CodigoErroProvedor> = new Set([
   "credencial_invalida",
   "modelo_indisponivel",
   "provider_refusal",
+  "saida_truncada",
+  "stop_reason_inesperado",
   "cancelado",
 ]);
 
@@ -34,6 +38,9 @@ export interface UsoProvedor {
 
 export const USO_ZERO: UsoProvedor = { tokensEntrada: 0, tokensSaida: 0, custoUsd: 0 };
 
+/** Níveis de esforço aceitos. OpenAI usa low/medium; Anthropic aceita a escala completa. */
+export type NivelEsforco = "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface ConfiguracaoChamada {
   modelo: string;
   instrucoesSistema: string;
@@ -41,7 +48,7 @@ export interface ConfiguracaoChamada {
   conteudoUsuario: string;
   nomeSchema: string;
   schemaSaida: Record<string, unknown>;
-  esforcoRaciocinio: "low" | "medium";
+  esforcoRaciocinio: NivelEsforco;
   limiteSaida: number;
   timeoutMs: number;
   /** Idempotência externa: mesma chave, mesma tentativa. */
@@ -77,6 +84,9 @@ export const MENSAGEM_SEGURA: Record<CodigoErroProvedor, string> = {
   provider_error: "Falha temporária na análise do briefing.",
   resposta_invalida: "A resposta veio fora do formato esperado e foi descartada.",
   provider_refusal: "O provedor recusou analisar este briefing. Revise o conteúdo e tente de novo.",
+  saida_truncada:
+    "A resposta do modelo foi interrompida por limite de tamanho e foi descartada por segurança.",
+  stop_reason_inesperado: "A resposta terminou de forma inesperada e foi descartada.",
   cancelado: "Execução cancelada.",
   unknown_outcome: "Não foi possível confirmar o resultado desta etapa.",
 };
