@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { lerVersaoDaEtapa } from "@/lib/agentes/registry-etapa.server";
 
 type Cliente = SupabaseClient<Database>;
 
@@ -15,24 +16,14 @@ export async function reservarOrcamentoEtapa(
   args: { execucaoId: string; etapaId: string; tentativa: number },
 ): Promise<{ reservado: boolean; chave: string }> {
   const chave = `etapa:${args.etapaId}:${args.tentativa}`;
-  const { data: etapa } = await supabase
-    .from("execucao_etapas")
-    .select("registry_versao_id")
-    .eq("id", args.etapaId)
-    .maybeSingle();
-  if (!etapa) return { reservado: false, chave };
-
-  const { data: versao } = await supabase
-    .from("registry_versoes")
-    .select("orcamento_estimado")
-    .eq("id", etapa.registry_versao_id)
-    .maybeSingle();
+  const versao = await lerVersaoDaEtapa(supabase, args.etapaId);
+  if (!versao) return { reservado: false, chave };
 
   const { data: ok } = await supabase.rpc("reservar_custo", {
     _execucao_id: args.execucaoId,
     _etapa_id: args.etapaId,
     _chave: chave,
-    _custo: Number(versao?.orcamento_estimado ?? 0),
+    _custo: versao.orcamentoEstimado,
   });
   return { reservado: ok === true, chave };
 }
