@@ -23,6 +23,7 @@ export async function lerConfiguracaoEtapa(
   supabase: Cliente,
   registryVersaoId: string | null,
 ): Promise<ConfiguracaoEtapa | null> {
+  void supabase;
   if (!registryVersaoId) return null;
   // O Registry é configuração da plataforma, não dado do usuário: só admin_tecnico
   // lê por RLS. A etapa precisa da versão fixada mesmo para uma conta comum, então
