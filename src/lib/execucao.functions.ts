@@ -18,11 +18,23 @@ import {
   lerConfiguracaoEspecialista,
   resultadosDoEspecialista,
 } from "@/lib/agentes/especialista-etapa.server";
+import {
+  executarEtapaAuditor,
+  executarEtapaPsicologia,
+  lerConfiguracaoOpenAI,
+  resultadosDaPsicologia,
+} from "@/lib/agentes/openai-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
-const categoria = z.enum(["briefing", "resumo_voz_marca", "texto_gerado", "metadados"]);
+const categoria = z.enum([
+  "briefing",
+  "resumo_voz_marca",
+  "texto_gerado",
+  "metadados",
+  "variacoes_para_auditoria",
+]);
 
 function erro(mensagem: string): never {
   throw new Error(mensagem);
@@ -429,6 +441,219 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           desfecho: desfechoReal,
           codigoErro,
           mensagem: resultado.ok ? null : MENSAGEM_SEGURA[resultado.codigo],
+        };
+      }
+    }
+
+    // ---- Análise psicológica com provedor real (F6C). ----
+    if (etapa.papel === "analise_psicologica") {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoOpenAI(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+        "medium",
+      );
+
+      if (configuracao && configuracao.provedor === "openai") {
+        const autorizado = await briefingAutorizado(context.supabase, execucao?.fotografia_id ?? null);
+        if (!autorizado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "autorizacao_ausente",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "autorizacao_ausente",
+          };
+        }
+
+        const { resultado, modelo } = await executarEtapaPsicologia(context.supabase, {
+          configuracao,
+          execucaoId: data.id,
+          chatId: execucao?.chat_id ?? null,
+          formato: formatoExec,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+
+        let desfechoReal = "concluida";
+        let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+        let codigoErro: string | null = null;
+
+        if (resultado.ok) {
+          const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _duracao_ms: resultado.duracaoMs,
+            _resultados: resultadosDaPsicologia(resultado.dados, modelo) as never,
+          });
+          if (eConcluir) {
+            statusEvento = "unknown_outcome";
+            codigoErro = "unknown_outcome";
+            desfechoReal = "resultado_incerto";
+            await context.supabase.rpc("falhar_etapa", {
+              _etapa_id: etapa.etapa_id,
+              _lease_token: etapa.lease_token,
+              _codigo_erro: "unknown_outcome",
+              _incerto: true,
+              _sem_retry: false,
+            });
+          }
+        } else {
+          statusEvento = "erro";
+          codigoErro = resultado.codigo;
+          const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: resultado.codigo,
+            _incerto: false,
+            _sem_retry: ERROS_SEM_RETRY.has(resultado.codigo),
+          });
+          desfechoReal = String(novo ?? "pendente");
+        }
+
+        await context.supabase.rpc("registrar_evento_tecnico", {
+          _tipo: "etapa",
+          _etapa: etapa.papel,
+          _provedor: "openai",
+          _modelo: modelo,
+          _duracao_ms: resultado.duracaoMs,
+          _status: statusEvento,
+          _codigo_erro: codigoErro as never,
+          _tentativas: etapa.tentativa,
+          _custo: resultado.uso.custoUsd,
+          _chat_id: (execucao?.chat_id ?? null) as never,
+          _tokens_entrada: resultado.uso.tokensEntrada,
+          _tokens_saida: resultado.uso.tokensSaida,
+        });
+
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: desfechoReal,
+          codigoErro,
+          mensagem: resultado.ok ? null : MENSAGEM_SEGURA[resultado.codigo],
+        };
+      }
+    }
+
+    // ---- Auditoria com provedor real (F6C), em lotes independentes. ----
+    if (etapa.papel === "auditor") {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoOpenAI(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+        "high",
+      );
+
+      if (configuracao && configuracao.provedor === "openai") {
+        const fotografiaId = execucao?.fotografia_id ?? null;
+        const autorizado = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "variacoes_para_auditoria",
+        );
+        if (!autorizado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "autorizacao_ausente",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "autorizacao_ausente",
+          };
+        }
+
+        const vozAutorizada = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "resumo_voz_marca",
+        );
+
+        const { desfecho, modelo } = await executarEtapaAuditor(context.supabase, {
+          configuracao,
+          execucaoId: data.id,
+          formato: formatoExec,
+          vozAutorizada,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+
+        let desfechoReal = "concluida";
+        let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+        let codigoErro: string | null = null;
+
+        if (desfecho.ok) {
+          const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _duracao_ms: desfecho.duracaoMs,
+            _resultados: desfecho.resultados as never,
+          });
+          if (eConcluir) {
+            statusEvento = "unknown_outcome";
+            codigoErro = "unknown_outcome";
+            desfechoReal = "resultado_incerto";
+            await context.supabase.rpc("falhar_etapa", {
+              _etapa_id: etapa.etapa_id,
+              _lease_token: etapa.lease_token,
+              _codigo_erro: "unknown_outcome",
+              _incerto: true,
+              _sem_retry: false,
+            });
+          }
+        } else {
+          statusEvento = "erro";
+          codigoErro = desfecho.codigo ?? "provider_error";
+          const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: codigoErro,
+            _incerto: false,
+            _sem_retry: desfecho.codigo ? ERROS_SEM_RETRY.has(desfecho.codigo) : false,
+          });
+          desfechoReal = String(novo ?? "pendente");
+        }
+
+        await context.supabase.rpc("registrar_evento_tecnico", {
+          _tipo: "etapa",
+          _etapa: etapa.papel,
+          _provedor: "openai",
+          _modelo: modelo,
+          _duracao_ms: desfecho.duracaoMs,
+          _status: statusEvento,
+          _codigo_erro: codigoErro as never,
+          _tentativas: etapa.tentativa,
+          _custo: desfecho.uso.custoUsd,
+          _chat_id: (execucao?.chat_id ?? null) as never,
+          _tokens_entrada: desfecho.uso.tokensEntrada,
+          _tokens_saida: desfecho.uso.tokensSaida,
+        });
+
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: desfechoReal,
+          codigoErro,
+          mensagem: desfecho.ok ? null : desfecho.mensagemSegura,
         };
       }
     }

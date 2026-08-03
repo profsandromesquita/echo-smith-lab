@@ -48,6 +48,7 @@ export const ROTULO_CATEGORIA: Record<string, string> = {
   resumo_voz_marca: "Resumo da voz de marca",
   texto_gerado: "Texto gerado",
   metadados: "Metadados técnicos",
+  variacoes_para_auditoria: "Variações geradas para auditoria",
 };
 
 export const ROTULO_ESCOPO: Record<string, string> = {

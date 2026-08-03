@@ -4,7 +4,7 @@
  * Saídas determinísticas: a mesma execução produz sempre o mesmo resultado.
  */
 
-import { PESOS_PADRAO, pontuar, ordenar, type FatoresRanking } from "@/lib/ranking";
+import { PESOS_PADRAO, pontuar, pontuarComVoz, ordenar, type FatoresRanking } from "@/lib/ranking";
 
 export type PapelAgente =
   | "gatekeeper"
@@ -148,6 +148,9 @@ function lerVariacoes(anteriores: ResultadoAnterior[]) {
   const reprovadas = new Set<string>();
   const notas = new Map<string, number>();
   const adaptadas = new Map<string, string>();
+  // fatores e avaliabilidade da Voz de Marca vindos da auditoria real
+  const criterios = new Map<string, FatoresRanking>();
+  const vozAvaliavel = new Map<string, boolean>();
 
   for (const r of anteriores) {
     const p = (r.payload ?? {}) as Record<string, unknown>;
@@ -163,11 +166,15 @@ function lerVariacoes(anteriores: ResultadoAnterior[]) {
       notas.set(id, Number(r.nota_final ?? 0));
       if (r.aprovado === false) reprovadas.add(id);
       else reprovadas.delete(id);
+      if (p['criterios']) criterios.set(id, p['criterios'] as FatoresRanking);
+      if (typeof p['voz_marca_avaliavel'] === "boolean") {
+        vozAvaliavel.set(id, p['voz_marca_avaliavel'] as boolean);
+      }
     } else if (r.tipo === "adaptacao") {
       adaptadas.set(id, String(p['texto_depois'] ?? textoAtual.get(id) ?? ""));
     }
   }
-  return { variacoes, textoAtual, corrigidas, reprovadas, notas, adaptadas };
+  return { variacoes, textoAtual, corrigidas, reprovadas, notas, adaptadas, criterios, vozAvaliavel };
 }
 
 /**
@@ -345,12 +352,18 @@ export function executarAdaptadorSimulado(
   if (papel === "ranking") {
     const itens = [...estado.variacoes.values()]
       .filter((v) => !estado.reprovadas.has(v.id))
-      .map((v) => ({
-        id: v.id,
-        score: pontuar(v.fatores, PESOS_PADRAO),
-        papel: v.papel,
-        texto: estado.adaptadas.get(v.id) ?? estado.textoAtual.get(v.id) ?? v.texto,
-      }));
+      .map((v) => {
+        // fatores da auditoria real quando existirem; caso contrário, os da geração
+        const fatores = estado.criterios.get(v.id) ?? v.fatores;
+        const avaliavel = estado.vozAvaliavel.get(v.id) ?? true;
+        return {
+          id: v.id,
+          score: pontuarComVoz(fatores, PESOS_PADRAO, avaliavel),
+          papel: v.papel,
+          voz_marca_avaliavel: avaliavel,
+          texto: estado.adaptadas.get(v.id) ?? estado.textoAtual.get(v.id) ?? v.texto,
+        };
+      });
     const ordenados = ordenar(itens).map((i, pos) => ({ ...i, posicao: pos + 1 }));
     return {
       duracaoMs,

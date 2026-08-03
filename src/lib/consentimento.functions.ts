@@ -4,7 +4,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const uuid = z.string().uuid();
 const escopo = z.enum(["conta", "pasta", "chat"]);
-const categoria = z.enum(["briefing", "resumo_voz_marca", "texto_gerado", "metadados"]);
+const categoria = z.enum([
+  "briefing",
+  "resumo_voz_marca",
+  "texto_gerado",
+  "metadados",
+  "variacoes_para_auditoria",
+]);
 const decisao = z.enum(["concedido", "recusado"]);
 const origem = z.enum(["modal", "configuracoes", "painel_chat", "sistema"]);
 
