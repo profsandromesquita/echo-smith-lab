@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FileText, Loader2, PenLine, Send, ShieldCheck, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +10,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AlertaDadosPessoais } from "@/components/privacy/AlertaDadosPessoais";
+import { anonimizar, detectarPii, temBloqueio, type AchadoPii } from "@/lib/pii";
+import { opcoesPreferencias } from "@/lib/privacidade";
 
 const AVISO_PRIVACIDADE =
   "Nomes e dados identificáveis são verificados no seu dispositivo antes de qualquer envio.";
@@ -21,17 +25,42 @@ export function Composer({
   enviando?: boolean;
 }) {
   const [texto, setTexto] = useState("");
+  const [achados, setAchados] = useState<AchadoPii[]>([]);
+  const [alerta, setAlerta] = useState(false);
+  const campo = useRef<HTMLTextAreaElement>(null);
+  const { data: prefs } = useQuery(opcoesPreferencias());
+
+  const alertaAtivo = prefs?.alerta_dados_pessoais ?? true;
+  const bloqueiaEnvio = prefs?.bloquear_envio_com_alerta ?? false;
+
+  const despachar = (valor: string) => {
+    setTexto("");
+    setAchados([]);
+    setAlerta(false);
+    void onEnviar(valor);
+  };
 
   const enviar = () => {
     const valor = texto.trim();
     if (!valor || enviando) return;
-    setTexto("");
-    void onEnviar(valor);
+
+    // Detecção roda no dispositivo. Nenhum trecho sensível é enviado ao backend.
+    if (alertaAtivo) {
+      const encontrados = detectarPii(valor);
+      if (encontrados.length > 0) {
+        setAchados(encontrados);
+        setAlerta(true);
+        return;
+      }
+    }
+    despachar(valor);
   };
 
   return (
+    <>
     <div className="rounded-lg border bg-card px-3 py-2">
       <Textarea
+        ref={campo}
         rows={2}
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
@@ -105,5 +134,24 @@ export function Composer({
         </Button>
       </div>
     </div>
+
+    <AlertaDadosPessoais
+      aberto={alerta}
+      achados={achados}
+      bloquear={bloqueiaEnvio && temBloqueio(achados)}
+      aoCancelar={() => setAlerta(false)}
+      aoEditar={() => {
+        setAlerta(false);
+        campo.current?.focus();
+      }}
+      aoAnonimizar={() => {
+        setTexto((t) => anonimizar(t, detectarPii(t)));
+        setAchados([]);
+        setAlerta(false);
+        campo.current?.focus();
+      }}
+      aoIgnorar={() => despachar(texto.trim())}
+    />
+    </>
   );
 }
