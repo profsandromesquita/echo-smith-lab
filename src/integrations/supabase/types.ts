@@ -1131,6 +1131,7 @@ export type Database = {
           _duracao_ms: number
           _etapa_id: string
           _lease_token: string
+          _parcial?: boolean
           _resultados: Json
         }
         Returns: undefined
