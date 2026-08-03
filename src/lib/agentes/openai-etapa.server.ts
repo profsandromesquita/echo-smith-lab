@@ -225,16 +225,19 @@ export async function executarEtapaAuditor(
     vozAutorizada: boolean;
     etapaId: string;
     tentativa: number;
+    /** original = variações geradas; corrigida = textos que passaram pela correção única. */
+    alvo?: "original" | "corrigida";
     sinal?: AbortSignal;
   },
 ): Promise<{ desfecho: DesfechoAuditoria; modelo: string }> {
   const modelo = args.configuracao.config.modelo;
+  const alvo: "original" | "corrigida" = args.alvo ?? "original";
   const etapas = await idsDasEtapas(supabase, args.execucaoId);
   const { data: variacoes } = await supabase
     .from("execucao_resultados")
     .select("payload")
     .in("etapa_id", etapas)
-    .eq("tipo", "variacao")
+    .eq("tipo", alvo === "original" ? "variacao" : "correcao")
     .order("criado_em");
 
   const itens: ItemParaAuditoria[] = (variacoes ?? []).map((r) => {
@@ -244,8 +247,12 @@ export async function executarEtapaAuditor(
       papel: String(p['papel'] ?? ""),
       formato: String(p['formato'] ?? args.formato),
       texto: String(p['texto'] ?? ""),
+      aplicada: p['aplicada'] !== false,
     };
-  }).filter((i) => i.variacao_id && i.texto);
+  })
+    // correções não aplicadas (sem orçamento ou sem autorização) não são reauditadas
+    .filter((i) => i.variacao_id && i.texto && (i as { aplicada?: boolean }).aplicada !== false)
+    .map(({ variacao_id, papel, formato, texto }) => ({ variacao_id, papel, formato, texto }));
 
   const diretrizes = await lerDiretrizes(supabase, args.execucaoId);
 
@@ -284,7 +291,6 @@ export async function executarEtapaAuditor(
   }
 
   for (const [papel, lista] of porPapel) {
-    const limite = LIMITE_POR_PAPEL[papel] ?? MAX_CARACTERES_HEADLINE;
     let indice = 0;
 
     for (const lote of lotesDe(lista)) {
@@ -294,8 +300,8 @@ export async function executarEtapaAuditor(
         config: args.configuracao.config,
         contexto,
         itens: lote,
-        versao: "original",
-        chaveIdempotencia: `${args.etapaId}:${args.tentativa}:${papel}:${indice}`,
+        versao: alvo,
+        chaveIdempotencia: `${args.etapaId}:${args.tentativa}:${alvo}:${papel}:${indice}`,
         ...(args.sinal ? { sinal: args.sinal } : {}),
       });
       uso = somarUso(uso, r.uso);
@@ -311,73 +317,10 @@ export async function executarEtapaAuditor(
 
       for (const a of r.dados.avaliacoes) {
         auditados.add(a.variacao_id);
-        resultados.push(resultadoAuditoria(a, papel, modelo, "original"));
-      }
-
-      // correção única das reprovadas do lote, seguida de uma única reauditoria
-      const reprovadas = r.dados.avaliacoes.filter((a) => !a.aprovado);
-      if (reprovadas.length === 0) continue;
-
-      const paraCorrigir = reprovadas
-        .map((a) => {
-          const item = lote.find((i) => i.variacao_id === a.variacao_id);
-          return item ? { ...item, observacao: a.observacao } : null;
-        })
-        .filter((i): i is ItemParaAuditoria & { observacao: string } => i !== null);
-      if (paraCorrigir.length === 0) continue;
-
-      const c = await corrigirLote({
-        config: args.configuracao.config,
-        contexto,
-        itens: paraCorrigir,
-        maxCaracteres: limite,
-        chaveIdempotencia: `${args.etapaId}:${args.tentativa}:${papel}:${indice}:correcao`,
-        ...(args.sinal ? { sinal: args.sinal } : {}),
-      });
-      uso = somarUso(uso, c.uso);
-      duracaoMs += c.duracaoMs;
-      if (!c.ok) continue;
-
-      for (const cor of c.dados.correcoes) {
-        const antes = paraCorrigir.find((i) => i.variacao_id === cor.variacao_id);
-        resultados.push({
-          tipo: "correcao" as const,
-          versao: "corrigida" as const,
-          payload: {
-            variacao_id: cor.variacao_id,
-            papel,
-            provedor: "openai",
-            modelo,
-            texto_antes: antes?.texto ?? "",
-            texto: cor.texto,
-            motivo: cor.motivo,
-            tentativa: 1,
-          },
-        });
-      }
-
-      const corrigidos: ItemParaAuditoria[] = c.dados.correcoes.map((cor) => ({
-        variacao_id: cor.variacao_id,
-        papel,
-        formato: paraCorrigir.find((i) => i.variacao_id === cor.variacao_id)?.formato ?? args.formato,
-        texto: cor.texto,
-      }));
-
-      const re = await auditarLote({
-        config: args.configuracao.config,
-        contexto,
-        itens: corrigidos,
-        versao: "corrigida",
-        chaveIdempotencia: `${args.etapaId}:${args.tentativa}:${papel}:${indice}:reauditoria`,
-        ...(args.sinal ? { sinal: args.sinal } : {}),
-      });
-      uso = somarUso(uso, re.uso);
-      duracaoMs += re.duracaoMs;
-      if (!re.ok) continue;
-
-      for (const a of re.dados.avaliacoes) {
         resultados.push(
-          resultadoAuditoria(a, papel, modelo, "corrigida", { correcao_esgotada: !a.aprovado }),
+          alvo === "original"
+            ? resultadoAuditoria(a, papel, modelo, "original")
+            : resultadoAuditoria(a, papel, modelo, "corrigida", { correcao_esgotada: !a.aprovado }),
         );
       }
     }
@@ -388,7 +331,7 @@ export async function executarEtapaAuditor(
     if (auditados.has(i.variacao_id)) continue;
     resultados.push({
       tipo: "auditoria" as const,
-      versao: "original" as const,
+      versao: alvo,
       aprovado: false,
       payload: {
         variacao_id: i.variacao_id,
