@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { executarAdaptadorSimulado, type PapelAgente } from "@/lib/adaptadores-simulados";
 import { testarGatekeeperSintetico } from "@/lib/agentes/gatekeeper-teste.server";
+import { testarEspecialistaSintetico } from "@/lib/agentes/especialista-teste.server";
 
 const uuid = z.string().uuid();
 
@@ -22,11 +23,11 @@ const papel = z.enum([
 const camposEditaveis = z
   .object({
     ativo: z.boolean().optional(),
-    provedor: z.enum(["simulado", "openai"]).optional(),
+    provedor: z.enum(["simulado", "openai", "anthropic"]).optional(),
     modelo: z
       .string()
       .trim()
-      .regex(/^(mock-[a-z0-9_-]+|gpt-5\.6|gpt-5\.6-sol)$/)
+      .regex(/^(mock-[a-z0-9_-]+|gpt-5\.6|gpt-5\.6-sol|claude-fable-5)$/)
       .optional(),
     instrucoes_sistema: z.string().trim().max(8000).optional(),
     schema_entrada: z.record(z.string(), z.unknown()).optional(),
@@ -126,7 +127,15 @@ export const validarRascunho = createServerFn({ method: "POST" })
 export const testarRascunho = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ id: uuid, papel, confirmarChamadaReal: z.boolean().default(false) }).strict().parse(d),
+    z
+      .object({
+        id: uuid,
+        papel,
+        confirmarChamadaReal: z.boolean().default(false),
+        esforcoComparado: z.enum(["low", "medium", "high", "xhigh", "max"]).nullable().default(null),
+      })
+      .strict()
+      .parse(d),
   )
   .handler(async ({ context, data }) => {
     const { data: versao } = await context.supabase
@@ -141,6 +150,24 @@ export const testarRascunho = createServerFn({ method: "POST" })
       const { error } = await context.supabase.rpc("registry_registrar_teste", {
         _versao_id: data.id,
         _resultado: { ...real, administrativo: true, briefing: "sintetico" },
+      });
+      if (error) erro(error.message);
+      return { ...real, administrativo: true };
+    }
+
+    if (versao?.provedor === "anthropic") {
+      if (!data.confirmarChamadaReal) erro("Confirme o teste: ele faz uma chamada real e gera custo.");
+      if (data.papel !== "hook_master" && data.papel !== "headline_architect") {
+        erro("Este papel ainda não usa o provedor Anthropic.");
+      }
+      const real = await testarEspecialistaSintetico(
+        data.papel as "hook_master" | "headline_architect",
+        versao,
+        data.esforcoComparado,
+      );
+      const { error } = await context.supabase.rpc("registry_registrar_teste", {
+        _versao_id: data.id,
+        _resultado: { ...real, administrativo: true, briefing: "sintetico" } as never,
       });
       if (error) erro(error.message);
       return { ...real, administrativo: true };
