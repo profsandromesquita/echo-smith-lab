@@ -74,6 +74,8 @@ export function EditorVersao({
   const [validada, setValidada] = useState(false);
   const [testada, setTestada] = useState(false);
   const [esforco, setEsforco] = useState("low");
+  const [esforcoAnthropic, setEsforcoAnthropic] = useState("medium");
+  const [esforcoComparado, setEsforcoComparado] = useState("nenhum");
   const [confirmarReal, setConfirmarReal] = useState(false);
 
   useEffect(() => {
@@ -84,6 +86,10 @@ export function EditorVersao({
     setTestada(false);
     setConfirmarReal(false);
     setEsforco(String((versao?.parametros as Record<string, unknown> | null)?.['reasoning_effort'] ?? "low"));
+    setEsforcoAnthropic(
+      String((versao?.parametros as Record<string, unknown> | null)?.['effort'] ?? "medium"),
+    );
+    setEsforcoComparado("nenhum");
   }, [versao]);
 
   const invalidar = () => cliente.invalidateQueries({ queryKey: chavesRegistry.raiz });
@@ -96,13 +102,15 @@ export function EditorVersao({
           id: form.id,
           dados: {
             ativo: form.ativo,
-            provedor: form.provedor as "simulado" | "openai",
+            provedor: form.provedor as "simulado" | "openai" | "anthropic",
             modelo: form.modelo,
             instrucoes_sistema: form.instrucoes_sistema ?? "",
             parametros:
               form.provedor === "openai"
                 ? { ...(form.parametros ?? {}), reasoning_effort: esforco, structured_outputs: true }
-                : { ...(form.parametros ?? {}) },
+                : form.provedor === "anthropic"
+                  ? { ...(form.parametros ?? {}), effort: esforcoAnthropic, structured_outputs: true }
+                  : { ...(form.parametros ?? {}) },
             limite_entrada: Number(form.limite_entrada),
             limite_saida: Number(form.limite_saida),
             timeout_ms: Number(form.timeout_ms),
@@ -141,7 +149,11 @@ export function EditorVersao({
         data: {
           id: form!.id,
           papel: form!.papel as never,
-          confirmarChamadaReal: form!.provedor === "openai" && confirmarReal,
+          confirmarChamadaReal: form!.provedor !== "simulado" && confirmarReal,
+          esforcoComparado:
+            form!.provedor === "anthropic" && esforcoComparado !== "nenhum"
+              ? (esforcoComparado as "low" | "medium" | "high" | "xhigh" | "max")
+              : null,
         },
       }),
     onSuccess: (r) => {
@@ -167,7 +179,9 @@ export function EditorVersao({
 
   if (!form) return null;
 
-  const real = form.provedor === "openai";
+  const openai = form.provedor === "openai";
+  const anthropic = form.provedor === "anthropic";
+  const real = openai || anthropic;
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
@@ -208,11 +222,12 @@ export function EditorVersao({
               <SelectContent>
                 <SelectItem value="simulado">Simulado</SelectItem>
                 <SelectItem value="openai">OpenAI (API oficial)</SelectItem>
+                <SelectItem value="anthropic">Anthropic (API oficial)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Nesta fase apenas o Gatekeeper pode usar provedor real. A credencial fica em Secrets e
-              nunca é gravada aqui.
+              OpenAI vale só para o Gatekeeper; Anthropic vale só para Hook Master e Headline
+              Architect. A credencial fica em Secrets e nunca é gravada aqui.
             </p>
           </div>
 
@@ -224,11 +239,12 @@ export function EditorVersao({
               onChange={(e) => setForm({ ...form, modelo: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              Simulado usa o prefixo mock-. Para OpenAI, use gpt-5.6-sol.
+              Simulado usa o prefixo mock-. Para OpenAI, use gpt-5.6-sol. Para Anthropic, use
+              claude-fable-5.
             </p>
           </div>
 
-          {real && (
+          {openai && (
             <div className="grid gap-2">
               <Label htmlFor="esforco">Esforço de raciocínio</Label>
               <Select value={esforco} onValueChange={setEsforco}>
@@ -240,6 +256,28 @@ export function EditorVersao({
                   <SelectItem value="medium">Médio</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {anthropic && (
+            <div className="grid gap-2">
+              <Label htmlFor="esforco-anthropic">Nível de esforço</Label>
+              <Select value={esforcoAnthropic} onValueChange={setEsforcoAnthropic}>
+                <SelectTrigger id="esforco-anthropic">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Baixo</SelectItem>
+                  <SelectItem value="medium">Médio</SelectItem>
+                  <SelectItem value="high">Alto</SelectItem>
+                  <SelectItem value="xhigh">Muito alto</SelectItem>
+                  <SelectItem value="max">Máximo</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O esforço faz parte da versão publicada: mudar o nível exige novo rascunho,
+                validação, teste e publicação.
+              </p>
             </div>
           )}
 
@@ -316,6 +354,27 @@ export function EditorVersao({
                   Usa apenas briefing sintético, não cria execução de usuário e pode gerar custo no
                   provedor.
                 </p>
+                {anthropic && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="esforco-comparado">Comparar com outro nível de esforço</Label>
+                    <Select value={esforcoComparado} onValueChange={setEsforcoComparado}>
+                      <SelectTrigger id="esforco-comparado">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nenhum">Não comparar</SelectItem>
+                        <SelectItem value="low">Baixo</SelectItem>
+                        <SelectItem value="medium">Médio</SelectItem>
+                        <SelectItem value="high">Alto</SelectItem>
+                        <SelectItem value="xhigh">Muito alto</SelectItem>
+                        <SelectItem value="max">Máximo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Comparar dispara uma segunda chamada real e dobra o custo do teste.
+                    </p>
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
                     checked={confirmarReal}

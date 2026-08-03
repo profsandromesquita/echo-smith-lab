@@ -12,6 +12,12 @@ import {
   lerConfiguracaoEtapa,
   resultadosDoGatekeeper,
 } from "@/lib/agentes/gatekeeper-etapa.server";
+import {
+  categoriaAutorizada,
+  executarEtapaEspecialista,
+  lerConfiguracaoEspecialista,
+  resultadosDoEspecialista,
+} from "@/lib/agentes/especialista-etapa.server";
 import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
 
 const uuid = z.string().uuid();
@@ -290,6 +296,122 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           _tipo: "etapa",
           _etapa: etapa.papel,
           _provedor: "openai",
+          _modelo: modelo,
+          _duracao_ms: resultado.duracaoMs,
+          _status: statusEvento,
+          _codigo_erro: codigoErro as never,
+          _tentativas: etapa.tentativa,
+          _custo: resultado.uso.custoUsd,
+          _chat_id: (execucao?.chat_id ?? null) as never,
+          _tokens_entrada: resultado.uso.tokensEntrada,
+          _tokens_saida: resultado.uso.tokensSaida,
+        });
+
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: desfechoReal,
+          codigoErro,
+          mensagem: resultado.ok ? null : MENSAGEM_SEGURA[resultado.codigo],
+        };
+      }
+    }
+
+    // ---- Hook Master e Headline Architect com provedor real (F6B). ----
+    if (etapa.papel === "hook_master" || etapa.papel === "headline_architect") {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoEspecialista(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+      );
+
+      if (configuracao && configuracao.provedor === "anthropic") {
+        const fotografiaId = execucao?.fotografia_id ?? null;
+        const autorizado = await categoriaAutorizada(context.supabase, fotografiaId, "briefing");
+        if (!autorizado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "autorizacao_ausente",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return {
+            avancou: true as const,
+            papel: etapa.papel,
+            desfecho: "falhou",
+            codigoErro: "autorizacao_ausente",
+          };
+        }
+
+        const vozAutorizada = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "resumo_voz_marca",
+        );
+
+        const { resultado, modelo } = await executarEtapaEspecialista(context.supabase, {
+          papel: etapa.papel,
+          configuracao,
+          execucaoId: data.id,
+          chatId: execucao?.chat_id ?? null,
+          formato: formatoExec,
+          vozAutorizada,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+
+        let desfechoReal = "concluida";
+        let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+        let codigoErro: string | null = null;
+
+        if (resultado.ok) {
+          const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _duracao_ms: resultado.duracaoMs,
+            _resultados: resultadosDoEspecialista(
+              etapa.papel,
+              data.id,
+              formatoExec,
+              modelo,
+              resultado.variacoes,
+            ) as never,
+          });
+          if (eConcluir) {
+            // a chamada externa pode ter sido processada e cobrada: nunca repetir às cegas
+            statusEvento = "unknown_outcome";
+            codigoErro = "unknown_outcome";
+            desfechoReal = "resultado_incerto";
+            await context.supabase.rpc("falhar_etapa", {
+              _etapa_id: etapa.etapa_id,
+              _lease_token: etapa.lease_token,
+              _codigo_erro: "unknown_outcome",
+              _incerto: true,
+              _sem_retry: false,
+            });
+          }
+        } else {
+          statusEvento = "erro";
+          codigoErro = resultado.codigo;
+          const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: resultado.codigo,
+            _incerto: false,
+            _sem_retry: ERROS_SEM_RETRY.has(resultado.codigo),
+          });
+          desfechoReal = String(novo ?? "pendente");
+        }
+
+        await context.supabase.rpc("registrar_evento_tecnico", {
+          _tipo: "etapa",
+          _etapa: etapa.papel,
+          _provedor: "anthropic",
           _modelo: modelo,
           _duracao_ms: resultado.duracaoMs,
           _status: statusEvento,

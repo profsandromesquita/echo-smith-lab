@@ -1,5 +1,5 @@
 /**
- * Adaptador direto da API oficial da OpenAI (endpoint /v1/responses).
+ * Adaptador direto da API oficial da Anthropic (Messages API).
  * Executa somente no servidor. A credencial vive em Cloud Secrets e nunca sai daqui:
  * não é registrada em log, não vai para o banco e não é devolvida ao cliente.
  */
@@ -14,32 +14,25 @@ import {
   type UsoProvedor,
 } from "@/lib/provedores/tipos";
 
-const ENDPOINT = "https://api.openai.com/v1/responses";
+const ENDPOINT = "https://api.anthropic.com/v1/messages";
+const VERSAO_API = "2023-06-01";
 
-/** Preço oficial por 1M de tokens (GPT-5.6 Sol). */
-const PRECO: Record<string, { entrada: number; cache: number; saida: number }> = {
-  "gpt-5.6": { entrada: 5, cache: 0.5, saida: 30 },
-  "gpt-5.6-sol": { entrada: 5, cache: 0.5, saida: 30 },
+/** Preço oficial por 1M de tokens (Claude Fable 5). */
+const PRECO: Record<string, { entrada: number; saida: number }> = {
+  "claude-fable-5": { entrada: 10, saida: 50 },
 };
 
-function calcularCusto(modelo: string, entrada: number, cache: number, saida: number): number {
+function calcularCusto(modelo: string, entrada: number, saida: number): number {
   const p = PRECO[modelo];
   if (!p) return 0;
-  const naoCache = Math.max(entrada - cache, 0);
-  const total = (naoCache * p.entrada + cache * p.cache + saida * p.saida) / 1_000_000;
-  return Number(total.toFixed(6));
+  return Number(((entrada * p.entrada + saida * p.saida) / 1_000_000).toFixed(6));
 }
 
 function lerUso(modelo: string, uso: unknown): UsoProvedor {
-  const u = (uso ?? {}) as {
-    input_tokens?: number;
-    output_tokens?: number;
-    input_tokens_details?: { cached_tokens?: number };
-  };
+  const u = (uso ?? {}) as { input_tokens?: number; output_tokens?: number };
   const entrada = Number(u.input_tokens ?? 0);
   const saida = Number(u.output_tokens ?? 0);
-  const cache = Number(u.input_tokens_details?.cached_tokens ?? 0);
-  return { tokensEntrada: entrada, tokensSaida: saida, custoUsd: calcularCusto(modelo, entrada, cache, saida) };
+  return { tokensEntrada: entrada, tokensSaida: saida, custoUsd: calcularCusto(modelo, entrada, saida) };
 }
 
 function classificarHttp(status: number, codigo: string): CodigoErroProvedor {
@@ -47,7 +40,6 @@ function classificarHttp(status: number, codigo: string): CodigoErroProvedor {
   if (status === 429) return "rate_limit";
   if (status === 404) return "modelo_indisponivel";
   if (status === 400 && /model/i.test(codigo)) return "modelo_indisponivel";
-  if (status === 400 || status === 422) return "provider_error";
   return "provider_error";
 }
 
@@ -60,28 +52,21 @@ function falha(
   return { ok: false, codigo, mensagemSegura: MENSAGEM_SEGURA[codigo], uso, duracaoMs, incerto };
 }
 
-/** Extrai texto estruturado ou recusa explícita da resposta do endpoint /v1/responses. */
-function lerSaida(corpo: unknown): { texto?: string; recusa?: string } {
-  const c = corpo as {
-    output_text?: string;
-    output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string; refusal?: string }> }>;
-  };
-  for (const item of c.output ?? []) {
-    for (const parte of item.content ?? []) {
-      if (parte.type === "refusal" && parte.refusal) return { recusa: parte.refusal };
-      if (parte.type === "output_text" && parte.text) return { texto: parte.text };
-    }
-  }
-  if (typeof c.output_text === "string" && c.output_text.length > 0) return { texto: c.output_text };
-  return {};
+/** Concatena apenas blocos de texto da resposta. Raciocínio do modelo é ignorado. */
+function lerTexto(corpo: unknown): string {
+  const c = corpo as { content?: Array<{ type?: string; text?: string }> };
+  return (c.content ?? [])
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text as string)
+    .join("");
 }
 
-export function criarProvedorOpenAI(): ProvedorLLM {
+export function criarProvedorAnthropic(): ProvedorLLM {
   return {
-    nome: "openai",
+    nome: "anthropic",
     async gerarEstruturado(config: ConfiguracaoChamada): Promise<RespostaProvedor> {
       const inicio = Date.now();
-      const chave = process.env['OPENAI_API_KEY'];
+      const chave = process.env['ANTHROPIC_API_KEY'];
       if (!chave) return falha("credencial_ausente", 0);
 
       const controlador = new AbortController();
@@ -95,25 +80,23 @@ export function criarProvedorOpenAI(): ProvedorLLM {
           signal: controlador.signal,
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${chave}`,
+            "x-api-key": chave,
+            "anthropic-version": VERSAO_API,
             "Idempotency-Key": config.chaveIdempotencia,
           },
           body: JSON.stringify({
             model: config.modelo,
             // instruções do sistema separadas do conteúdo do usuário
-            instructions: config.instrucoesSistema,
-            input: [{ role: "user", content: config.conteudoUsuario }],
-            reasoning: { effort: config.esforcoRaciocinio === "low" ? "low" : "medium" },
-            max_output_tokens: config.limiteSaida,
-            text: {
+            system: config.instrucoesSistema,
+            messages: [{ role: "user", content: config.conteudoUsuario }],
+            max_tokens: config.limiteSaida,
+            output_config: {
+              effort: config.esforcoRaciocinio,
               format: {
                 type: "json_schema",
-                name: config.nomeSchema,
-                strict: true,
                 schema: config.schemaSaida,
               },
             },
-            store: false,
           }),
         });
 
@@ -121,21 +104,26 @@ export function criarProvedorOpenAI(): ProvedorLLM {
         const corpo = (await resposta.json().catch(() => null)) as Record<string, unknown> | null;
 
         if (!resposta.ok) {
-          const erro = (corpo?.['error'] ?? {}) as { code?: string; type?: string };
-          return falha(classificarHttp(resposta.status, String(erro.code ?? erro.type ?? "")), duracaoMs);
+          const erro = (corpo?.['error'] ?? {}) as { type?: string; message?: string };
+          return falha(classificarHttp(resposta.status, String(erro.type ?? "")), duracaoMs);
         }
 
         const uso = lerUso(config.modelo, corpo?.['usage']);
-        const status = String(corpo?.['status'] ?? "");
-        const { texto, recusa } = lerSaida(corpo);
+        const motivo = String(corpo?.['stop_reason'] ?? "");
 
-        if (recusa) return falha("provider_refusal", duracaoMs, uso);
-        if (status === "incomplete" || !texto) return falha("resposta_invalida", duracaoMs, uso);
+        if (motivo === "refusal") return falha("provider_refusal", duracaoMs, uso);
+        // max_tokens invalida o JSON estruturado: descartamos sem tentar reparar
+        if (motivo === "max_tokens") return falha("saida_truncada", duracaoMs, uso);
+        if (motivo !== "end_turn" && motivo !== "stop_sequence") {
+          return falha("stop_reason_inesperado", duracaoMs, uso);
+        }
+
+        const texto = lerTexto(corpo);
+        if (!texto) return falha("resposta_invalida", duracaoMs, uso);
 
         try {
           return { ok: true, dados: JSON.parse(texto) as unknown, uso, duracaoMs };
         } catch {
-          // nunca tentamos reparar JSON manualmente
           return falha("resposta_invalida", duracaoMs, uso);
         }
       } catch (e) {
