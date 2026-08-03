@@ -47,9 +47,15 @@ export const salvarPreferencias = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
+    const limpo = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined),
+    ) as Partial<typeof PREFERENCIAS_PADRAO>;
     const { error } = await context.supabase
       .from("preferencias_privacidade")
-      .upsert({ ...PREFERENCIAS_PADRAO, ...data, user_id: context.userId }, { onConflict: "user_id" });
+      .upsert(
+        { ...PREFERENCIAS_PADRAO, ...limpo, user_id: context.userId },
+        { onConflict: "user_id" },
+      );
     if (error) erro(error.message);
     return { ok: true };
   });
