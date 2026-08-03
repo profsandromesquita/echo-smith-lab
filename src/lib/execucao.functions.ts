@@ -241,14 +241,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     // ---- Gatekeeper com provedor real (F6A). Demais papéis seguem simulados. ----
     if (etapa.papel === "gatekeeper") {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoEtapa(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
       );
 
       if (configuracao && configuracao.provedor === "openai") {
@@ -364,14 +359,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     // ---- Hook Master e Headline Architect com provedor real (F6B). ----
     if (etapa.papel === "hook_master" || etapa.papel === "headline_architect") {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoEspecialista(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
       );
 
       if (configuracao && configuracao.provedor === "anthropic") {
@@ -508,14 +498,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     // ---- CTA Specialist com provedor real (F6D). ----
     if (etapa.papel === "cta_specialist") {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoEspecialista(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
       );
 
       if (configuracao && configuracao.provedor === "anthropic") {
@@ -649,14 +634,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     // ---- Análise psicológica com provedor real (F6C). ----
     if (etapa.papel === "analise_psicologica") {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoOpenAI(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
         "medium",
       );
 
@@ -890,14 +870,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     // ---- Auditoria e auditoria final com provedor real (F6C/F6D), em lotes. ----
     if (etapa.papel === "auditor" || etapa.papel === "auditoria_final") {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoOpenAI(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
         "high",
       );
 
@@ -1036,14 +1011,9 @@ export const avancarExecucao = createServerFn({ method: "POST" })
     // Sem fallback silencioso: se a etapa está fixada em uma versão de provedor real
     // e chegou até aqui, o caminho real não foi executado e a etapa falha explicitamente.
     {
-      const { data: linhaEtapa } = await context.supabase
-        .from("execucao_etapas")
-        .select("registry_versao_id")
-        .eq("id", etapa.etapa_id)
-        .maybeSingle();
       const configuracao = await lerConfiguracaoEtapa(
         context.supabase,
-        linhaEtapa?.registry_versao_id ?? null,
+        etapa.etapa_id,
       );
       if (!configuracao || configuracao.provedor !== "simulado") {
         await context.supabase.rpc("falhar_etapa", {

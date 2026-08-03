@@ -147,7 +147,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Execução simulada</CardTitle>
+          <CardTitle className="text-sm">Execução do pipeline</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           <Select value={formato} onValueChange={setFormato}>
@@ -166,8 +166,8 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
             Iniciar execução
           </Button>
           <p className="w-full text-xs text-muted-foreground">
-            Nesta fase todos os agentes usam adaptadores simulados. Nenhum provedor externo é
-            chamado e nenhum Secret é solicitado.
+            Os agentes desta execução rodam nos provedores em nuvem fixados no Registry. Cada
+            etapa só é chamada com o consentimento que você autorizar.
           </p>
         </CardContent>
       </Card>
@@ -184,7 +184,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 pb-3">
         <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
-          Execução simulada
+          Execução do pipeline
           <Badge variant="outline" className="font-normal">
             {estado ? ROTULO_ESTADO_EXECUCAO[estado] : "—"}
           </Badge>
