@@ -34,16 +34,27 @@ Analista (`json_schema` estrito, `additionalProperties:false`, revalidado com Zo
 - `conflito_inconsciente`, `dor_aparente`, `tensao_subjacente`, `diretriz_criativa` (uma única diretriz), `resumo_seguro` (string curta, exibível);
 - `angulos_recomendados`, `angulos_a_evitar`, `riscos_eticos` (arrays de string).
 
-Auditor — objeto `{ avaliacoes: [...] }`, um item por variação:
-- `resultado_id`; notas 0–10 em `impacto_emocional`, `clareza_consequencia`, `ritmo_leitura`, `adequacao_formato`, `adequacao_voz_marca`, `ausencia_cliches`, `confianca_avaliacao`; `aprovado` (boolean); `motivo_curto`; `instrucao_correcao` (string ou null); `alertas` (array de string).
+Auditor — objeto `{ avaliacoes: [...] }`, um item por variação do lote:
+- `resultado_id`; notas 0–10 em `impacto_emocional`, `clareza_consequencia`, `ritmo_leitura`, `adequacao_formato`, `ausencia_cliches`, `confianca_avaliacao`; `aprovado` (boolean); `motivo_curto`; `instrucao_correcao` (string ou null); `alertas` (array de string);
+- Voz de Marca com par explícito: `voz_marca_avaliavel` (boolean) e `adequacao_voz_marca` (número 0–10 ou null).
 
-Revalidação local obrigatória: quantidade de avaliações igual à de variações enviadas, `resultado_id` pertencente ao conjunto enviado, notas dentro de 0–10, `instrucao_correcao` presente somente quando `aprovado = false`. Falha de schema após uma única rechamada = `resposta_invalida`, sem reparo manual de JSON.
+Regras da Voz de Marca: com `voz_marca_avaliavel = true` a nota é obrigatória; com `false` ela deve ser exatamente `null`. Nunca se inventa nota, e a ausência de autorização jamais reduz a nota da variação — o fator é neutralizado no ranking e a interface exibe "não avaliado", nunca zero.
+
+Integridade das avaliações (validação local, rejeição total do lote em caso de violação):
+- cada `resultado_id` enviado aparece exatamente uma vez;
+- nenhum duplicado, nenhum ausente, nenhum desconhecido, nenhuma avaliação órfã;
+- quantidade exatamente igual à do lote enviado;
+- notas dentro de 0–10 e `instrucao_correcao` presente somente quando `aprovado = false`.
+
+Falha de schema ou de integridade após uma única rechamada = `resposta_invalida`, sem reparo manual de JSON e sem aproveitamento parcial do lote.
 
 ## 3. Dados enviados
 
 Analista: briefing estruturado autorizado, público, dor, promessa, contexto, objetivo, nível de consciência, formato solicitado e restrições éticas explícitas. Nada de histórico, resultados de especialistas, exemplos locais, preferências inferidas, Secrets ou prompts internos.
 
 Auditor: briefing estruturado, diretriz psicológica, formatos solicitados, objetivo, regras de Voz de Marca somente se autorizadas, as variações a auditar (id, texto, formato) e os critérios/pesos aplicáveis. Nada de dados de outras contas nem de memória local.
+
+A auditoria roda em lotes por formato, preferencialmente cinco variações por chamada. Cada lote é uma chamada independente, com validação, persistência, timeout, lease, retry, cancelamento e `unknown_outcome` próprios: falha em um formato não apaga auditorias já persistidas de outro, e a execução pode terminar parcialmente concluída. Nenhuma variação chega ao ranking sem auditoria válida.
 
 ## 4. Configuração de raciocínio
 
