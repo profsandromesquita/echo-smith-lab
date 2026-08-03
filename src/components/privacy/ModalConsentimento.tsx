@@ -52,6 +52,8 @@ interface Props {
   chatId?: string | null;
   modo?: ModoPrivacidade;
   permissoes?: PermissaoSolicitada[];
+  /** Chamado só quando a autorização é efetivamente concedida. */
+  aoConceder?: () => void;
 }
 
 export function ModalConsentimento({
@@ -60,6 +62,7 @@ export function ModalConsentimento({
   chatId = null,
   modo = "local_estrita",
   permissoes = PERMISSOES_PADRAO,
+  aoConceder,
 }: Props) {
   const cliente = useQueryClient();
   const [ocupado, setOcupado] = useState(false);
@@ -92,6 +95,7 @@ export function ModalConsentimento({
     onSuccess: async () => {
       await invalidar();
       toast.success("Autorização registrada. Pode ser revogada em Privacidade.");
+      aoConceder?.();
       aoFechar();
     },
     onError: () => toast.error("Não foi possível registrar essa autorização."),
