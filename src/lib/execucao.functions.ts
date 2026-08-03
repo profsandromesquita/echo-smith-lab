@@ -447,7 +447,6 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       }
     }
 
-    // ---- Análise psicológica com provedor real (F6C). ----
     // ---- CTA Specialist com provedor real (F6D). ----
     if (etapa.papel === "cta_specialist") {
       const { data: linhaEtapa } = await context.supabase
@@ -561,6 +560,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       }
     }
 
+    // ---- Análise psicológica com provedor real (F6C). ----
     if (etapa.papel === "analise_psicologica") {
       const { data: linhaEtapa } = await context.supabase
         .from("execucao_etapas")
