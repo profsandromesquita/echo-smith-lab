@@ -16,14 +16,23 @@ import { decidirConsentimento, montarFotografiaSimulada } from "@/lib/consentime
 import { chavesPrivacidade, ROTULO_CATEGORIA, type ModoPrivacidade } from "@/lib/privacidade";
 
 export interface PermissaoSolicitada {
-  categoria: "briefing" | "resumo_voz_marca" | "texto_gerado" | "metadados";
+  categoria:
+    | "briefing"
+    | "resumo_voz_marca"
+    | "texto_gerado"
+    | "metadados"
+    | "variacoes_para_auditoria";
   provedor: string;
   etapa: string;
   finalidade: string;
 }
 
 /** Em memória local estrita, estas categorias ficam indisponíveis. */
-const BLOQUEADAS_EM_LOCAL_ESTRITA = ["resumo_voz_marca", "texto_gerado"];
+const BLOQUEADAS_EM_LOCAL_ESTRITA = [
+  "resumo_voz_marca",
+  "texto_gerado",
+  "variacoes_para_auditoria",
+];
 
 export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
   {
@@ -43,6 +52,13 @@ export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
     provedor: "Provedor de nuvem A",
     etapa: "Auditoria",
     finalidade: "Auditar qualidade e conformidade das variações",
+  },
+  {
+    categoria: "variacoes_para_auditoria",
+    provedor: "Provedor de nuvem A (OpenAI)",
+    etapa: "Auditoria",
+    finalidade:
+      "Enviar ao provedor de nuvem A as variações escritas pelo provedor de nuvem B (Anthropic) para avaliação de qualidade e conformidade",
   },
 ];
 
