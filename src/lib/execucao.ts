@@ -70,6 +70,8 @@ export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
   provider_error: "Falha temporária na análise do briefing.",
   resposta_invalida: "A resposta veio fora do formato esperado e foi descartada.",
   provider_refusal: "O provedor recusou analisar este briefing. Revise o conteúdo.",
+  saida_truncada: "A resposta foi interrompida por limite de tamanho e foi descartada.",
+  stop_reason_inesperado: "A resposta terminou de forma inesperada e foi descartada.",
   unknown_outcome: "Não foi possível confirmar o resultado desta etapa.",
   descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
 };
