@@ -16,6 +16,7 @@ import { MAX_CARACTERES_HOOK } from "@/lib/agentes/hook-master.server";
 import { MAX_CARACTERES_HEADLINE } from "@/lib/agentes/headline-architect.server";
 import { MAX_CARACTERES_CTA } from "@/lib/agentes/cta-specialist.server";
 import { USO_ZERO, type CodigoErroProvedor, type UsoProvedor } from "@/lib/provedores/tipos";
+import { lerVersaoDaExecucao } from "@/lib/agentes/registry-etapa.server";
 
 type Cliente = SupabaseClient<Database>;
 
@@ -179,34 +180,19 @@ async function configuracaoDoEspecialista(
   execucaoId: string,
   papel: string,
 ): Promise<{ provedor: string; config: ConfigEspecialista; orcamento: number } | null> {
-  const { data: vinculo } = await supabase
-    .from("execucao_registry_versoes")
-    .select("registry_versao_id")
-    .eq("execucao_id", execucaoId)
-    .eq("papel", papel)
-    .maybeSingle();
-  if (!vinculo) return null;
+  const versao = await lerVersaoDaExecucao(supabase, execucaoId, papel);
+  if (!versao) return null;
 
-  const { data } = await supabase
-    .from("registry_versoes")
-    .select(
-      "provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms, orcamento_estimado",
-    )
-    .eq("id", vinculo.registry_versao_id)
-    .maybeSingle();
-  if (!data) return null;
-
-  const parametros = (data.parametros ?? {}) as Record<string, unknown>;
   return {
-    provedor: data.provedor,
-    orcamento: Number(data.orcamento_estimado ?? 0),
+    provedor: versao.provedor,
+    orcamento: versao.orcamentoEstimado,
     config: {
-      modelo: data.modelo,
-      instrucoesSistema: data.instrucoes_sistema ?? "",
-      esforco: normalizarEsforco(parametros['effort']),
-      limiteEntrada: data.limite_entrada,
-      limiteSaida: data.limite_saida,
-      timeoutMs: data.timeout_ms,
+      modelo: versao.modelo,
+      instrucoesSistema: versao.instrucoesSistema,
+      esforco: normalizarEsforco(versao.parametros['effort']),
+      limiteEntrada: versao.limiteEntrada,
+      limiteSaida: versao.limiteSaida,
+      timeoutMs: versao.timeoutMs,
     },
   };
 }
