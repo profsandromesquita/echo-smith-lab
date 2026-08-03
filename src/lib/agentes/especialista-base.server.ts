@@ -227,58 +227,16 @@ export async function executarEspecialistaReal(args: {
   chaveIdempotencia: string;
   sinal?: AbortSignal;
 }): Promise<ResultadoEspecialista> {
-  const provedor = criarProvedorAnthropic();
-  const conteudoUsuario = montarConteudoEspecialista(args.entrada, args.config.limiteEntrada);
-  const instrucoes = `${args.instrucoesPapel} ${REGRAS_FIXAS}\n\n${args.config.instrucoesSistema}`.slice(
-    0,
-    8000,
-  );
-  const schema = schemaVariacoes(args.maxCaracteres);
-  const validador = validadorVariacoes(args.maxCaracteres);
-
-  let uso = USO_ZERO;
-  let duracao = 0;
-
-  for (let tentativa = 0; tentativa < 2; tentativa += 1) {
-    const bruta: RespostaProvedor = await provedor.gerarEstruturado({
-      modelo: args.config.modelo,
-      instrucoesSistema: instrucoes,
-      conteudoUsuario,
-      nomeSchema: args.nomeSchema,
-      schemaSaida: schema,
-      esforcoRaciocinio: args.config.esforco,
-      limiteSaida: args.config.limiteSaida,
-      timeoutMs: args.config.timeoutMs,
-      chaveIdempotencia: `${args.chaveIdempotencia}:${tentativa}`,
-      ...(args.sinal ? { sinal: args.sinal } : {}),
-    });
-
-    uso = somar(uso, bruta.uso);
-    duracao += bruta.duracaoMs;
-
-    if (!bruta.ok) {
-      if (bruta.codigo === "resposta_invalida" && tentativa === 0) continue;
-      return {
-        ok: false,
-        codigo: bruta.codigo,
-        mensagemSegura: bruta.mensagemSegura,
-        uso,
-        duracaoMs: duracao,
-      };
-    }
-
-    const analise = validador.safeParse(bruta.dados);
-    if (analise.success) {
-      return { ok: true, variacoes: analise.data.variacoes, uso, duracaoMs: duracao };
-    }
-    if (tentativa === 1) break;
-  }
-
-  return {
-    ok: false,
-    codigo: "resposta_invalida",
-    mensagemSegura: MENSAGEM_SEGURA["resposta_invalida"],
-    uso,
-    duracaoMs: duracao,
-  };
+  const r = await executarEstruturadoAnthropic<{ variacoes: VariacaoGerada[] }>({
+    config: args.config,
+    conteudoUsuario: montarConteudoEspecialista(args.entrada, args.config.limiteEntrada),
+    instrucoesPapel: args.instrucoesPapel,
+    nomeSchema: args.nomeSchema,
+    schema: schemaVariacoes(args.maxCaracteres),
+    validador: validadorVariacoes(args.maxCaracteres),
+    chaveIdempotencia: args.chaveIdempotencia,
+    ...(args.sinal ? { sinal: args.sinal } : {}),
+  });
+  if (!r.ok) return r;
+  return { ok: true, variacoes: r.dados.variacoes, uso: r.uso, duracaoMs: r.duracaoMs };
 }
