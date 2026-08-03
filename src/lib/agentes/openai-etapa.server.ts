@@ -17,6 +17,7 @@ import {
 } from "@/lib/agentes/auditor.server";
 import { executarAnalisePsicologica, type SaidaPsicologia } from "@/lib/agentes/psicologia.server";
 import { USO_ZERO, type CodigoErroProvedor, type NivelEsforco, type UsoProvedor } from "@/lib/provedores/tipos";
+import { lerVersaoDaEtapa } from "@/lib/agentes/registry-etapa.server";
 import type { FatoresRanking } from "@/lib/ranking";
 
 type Cliente = SupabaseClient<Database>;
@@ -36,27 +37,22 @@ export interface ConfiguracaoEtapaOpenAI {
 /** Lê a configuração publicada vinculada à etapa. Nunca lê credenciais do banco. */
 export async function lerConfiguracaoOpenAI(
   supabase: Cliente,
-  registryVersaoId: string | null,
+  etapaId: string | null,
   esforcoPadrao: NivelEsforco,
 ): Promise<ConfiguracaoEtapaOpenAI | null> {
-  if (!registryVersaoId) return null;
-  const { data } = await supabase
-    .from("registry_versoes")
-    .select("provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms")
-    .eq("id", registryVersaoId)
-    .maybeSingle();
-  if (!data) return null;
+  if (!etapaId) return null;
+  const versao = await lerVersaoDaEtapa(supabase, etapaId);
+  if (!versao) return null;
 
-  const parametros = (data.parametros ?? {}) as Record<string, unknown>;
   return {
-    provedor: data.provedor,
+    provedor: versao.provedor,
     config: {
-      modelo: data.modelo,
-      instrucoesSistema: data.instrucoes_sistema ?? "",
-      esforco: normalizarEsforcoOpenAI(parametros['reasoning_effort'], esforcoPadrao),
-      limiteEntrada: data.limite_entrada,
-      limiteSaida: data.limite_saida,
-      timeoutMs: data.timeout_ms,
+      modelo: versao.modelo,
+      instrucoesSistema: versao.instrucoesSistema,
+      esforco: normalizarEsforcoOpenAI(versao.parametros['reasoning_effort'], esforcoPadrao),
+      limiteEntrada: versao.limiteEntrada,
+      limiteSaida: versao.limiteSaida,
+      timeoutMs: versao.timeoutMs,
     },
   };
 }
