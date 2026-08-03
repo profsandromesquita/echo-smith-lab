@@ -1109,11 +1109,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aplicar_transicao_etapa: {
+        Args: { _etapa_id: string; _motivo: string; _para: string }
+        Returns: undefined
+      }
+      aplicar_transicao_execucao: {
+        Args: { _execucao_id: string; _motivo: string; _para: string }
+        Returns: undefined
+      }
+      cancelar_execucao: { Args: { _execucao_id: string }; Returns: undefined }
       cancelar_solicitacao_conta: { Args: { _id: string }; Returns: boolean }
       chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
+      concluir_etapa: {
+        Args: {
+          _duracao_ms: number
+          _etapa_id: string
+          _lease_token: string
+          _resultados: Json
+        }
+        Returns: undefined
+      }
+      criar_execucao: {
+        Args: {
+          _chat_id: string
+          _formato: string
+          _modo_privacidade: string
+          _permissoes: Json
+          _snapshot_chat: Json
+          _snapshot_marca: Json
+          _snapshot_privacidade: Json
+        }
+        Returns: string
+      }
       criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
+      desbloquear_etapas: {
+        Args: { _categoria: string; _execucao_id: string }
+        Returns: number
+      }
       etapa_e_minha: { Args: { _etapa_id: string }; Returns: boolean }
       execucao_e_minha: { Args: { _execucao_id: string }; Returns: boolean }
+      falhar_etapa: {
+        Args: {
+          _codigo_erro: string
+          _etapa_id: string
+          _incerto: boolean
+          _lease_token: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1125,6 +1168,10 @@ export type Database = {
       perfil_e_meu: {
         Args: { _perfil_id: string; _user_id: string }
         Returns: boolean
+      }
+      recuperar_etapas_expiradas: {
+        Args: { _execucao_id: string }
+        Returns: number
       }
       registrar_consentimento: {
         Args: {
@@ -1152,6 +1199,41 @@ export type Database = {
           _tentativas: number
           _tipo: string
         }
+        Returns: undefined
+      }
+      registry_atualizar_rascunho: {
+        Args: { _dados: Json; _versao_id: string }
+        Returns: undefined
+      }
+      registry_criar_rascunho: {
+        Args: { _base_versao_id: string; _motivo: string; _papel: string }
+        Returns: string
+      }
+      registry_descartar_rascunho: {
+        Args: { _versao_id: string }
+        Returns: undefined
+      }
+      registry_exigir_admin: { Args: never; Returns: undefined }
+      registry_publicar: {
+        Args: { _motivo: string; _versao_id: string }
+        Returns: undefined
+      }
+      registry_registrar_teste: {
+        Args: { _resultado: Json; _versao_id: string }
+        Returns: undefined
+      }
+      registry_validar: { Args: { _versao_id: string }; Returns: Json }
+      reservar_etapa: {
+        Args: { _execucao_id: string }
+        Returns: {
+          etapa_id: string
+          lease_token: string
+          papel: string
+          tentativa: number
+        }[]
+      }
+      resolver_resultado_incerto: {
+        Args: { _etapa_id: string; _retomar: boolean }
         Returns: undefined
       }
       revogar_consentimento: {
