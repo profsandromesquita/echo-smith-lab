@@ -69,7 +69,7 @@ export function schemaAuditoria(ids: string[]): Record<string, unknown> {
             voz_marca_avaliavel: { type: "boolean" },
             adequacao_voz_marca: { type: ["number", "null"] },
             aprovado: { type: "boolean" },
-            observacao: { type: "string" },
+            observacao: { type: "string", maxLength: 400 },
             alertas: { type: "array", items: { type: "string", enum: [...ALERTAS_AUDITOR] } },
           },
         },
@@ -182,7 +182,7 @@ function schemaCorrecao(ids: string[], maxCaracteres: number): Record<string, un
           properties: {
             variacao_id: { type: "string", enum: ids },
             texto: { type: "string", maxLength: maxCaracteres },
-            motivo: { type: "string" },
+            motivo: { type: "string", maxLength: 400 },
           },
         },
       },

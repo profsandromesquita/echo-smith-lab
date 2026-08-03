@@ -23,8 +23,13 @@ export async function lerConfiguracaoEtapa(
   supabase: Cliente,
   registryVersaoId: string | null,
 ): Promise<ConfiguracaoEtapa | null> {
+  void supabase;
   if (!registryVersaoId) return null;
-  const { data } = await supabase
+  // O Registry é configuração da plataforma, não dado do usuário: só admin_tecnico
+  // lê por RLS. A etapa precisa da versão fixada mesmo para uma conta comum, então
+  // a leitura acontece pelo cliente privilegiado, restrita ao id já fixado na etapa.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
     .from("registry_versoes")
     .select("provedor, modelo, instrucoes_sistema, parametros, limite_entrada, limite_saida, timeout_ms")
     .eq("id", registryVersaoId)

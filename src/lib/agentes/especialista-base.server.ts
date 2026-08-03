@@ -77,8 +77,8 @@ export function schemaVariacoes(maxCaracteres: number): Record<string, unknown> 
           required: ["texto", "angulo", "justificativa"],
           properties: {
             texto: { type: "string", maxLength: maxCaracteres },
-            angulo: { type: "string" },
-            justificativa: { type: "string" },
+            angulo: { type: "string", maxLength: 120 },
+            justificativa: { type: "string", maxLength: 400 },
           },
         },
       },
