@@ -6,6 +6,13 @@ import {
   type PapelAgente,
   type ResultadoAnterior,
 } from "@/lib/adaptadores-simulados";
+import {
+  briefingAutorizado,
+  executarEtapaGatekeeper,
+  lerConfiguracaoEtapa,
+  resultadosDoGatekeeper,
+} from "@/lib/agentes/gatekeeper-etapa.server";
+import { ERROS_SEM_RETRY, MENSAGEM_SEGURA } from "@/lib/provedores/tipos";
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
@@ -203,9 +210,106 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     const { data: execucao } = await context.supabase
       .from("execucoes")
-      .select("formato_solicitado")
+      .select("formato_solicitado, chat_id, fotografia_id")
       .eq("id", data.id)
       .maybeSingle();
+
+    const formatoExec = execucao?.formato_solicitado ?? "hook";
+
+    // ---- Gatekeeper com provedor real (F6A). Demais papéis seguem simulados. ----
+    if (etapa.papel === "gatekeeper") {
+      const { data: linhaEtapa } = await context.supabase
+        .from("execucao_etapas")
+        .select("registry_versao_id")
+        .eq("id", etapa.etapa_id)
+        .maybeSingle();
+      const configuracao = await lerConfiguracaoEtapa(
+        context.supabase,
+        linhaEtapa?.registry_versao_id ?? null,
+      );
+
+      if (configuracao && configuracao.provedor === "openai") {
+        const autorizado = await briefingAutorizado(context.supabase, execucao?.fotografia_id ?? null);
+        if (!autorizado) {
+          await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: "autorizacao_ausente",
+            _incerto: false,
+            _sem_retry: true,
+          });
+          return { avancou: true as const, papel: etapa.papel, desfecho: "falhou", codigoErro: "autorizacao_ausente" };
+        }
+
+        const { resultado, modelo } = await executarEtapaGatekeeper(context.supabase, {
+          configuracao,
+          chatId: execucao?.chat_id ?? null,
+          formato: formatoExec,
+          etapaId: etapa.etapa_id,
+          tentativa: etapa.tentativa,
+        });
+
+        let desfechoReal = "concluida";
+        let statusEvento: "ok" | "erro" | "unknown_outcome" = "ok";
+        let codigoErro: string | null = null;
+
+        if (resultado.ok) {
+          const { error: eConcluir } = await context.supabase.rpc("concluir_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _duracao_ms: resultado.duracaoMs,
+            _resultados: resultadosDoGatekeeper(resultado.saida, modelo) as never,
+          });
+          if (eConcluir) {
+            // a chamada externa pode ter sido processada e cobrada: nunca repetir às cegas
+            statusEvento = "unknown_outcome";
+            codigoErro = "unknown_outcome";
+            desfechoReal = "resultado_incerto";
+            await context.supabase.rpc("falhar_etapa", {
+              _etapa_id: etapa.etapa_id,
+              _lease_token: etapa.lease_token,
+              _codigo_erro: "unknown_outcome",
+              _incerto: true,
+              _sem_retry: false,
+            });
+          }
+        } else {
+          statusEvento = "erro";
+          codigoErro = resultado.codigo;
+          const { data: novo } = await context.supabase.rpc("falhar_etapa", {
+            _etapa_id: etapa.etapa_id,
+            _lease_token: etapa.lease_token,
+            _codigo_erro: resultado.codigo,
+            _incerto: false,
+            _sem_retry: ERROS_SEM_RETRY.has(resultado.codigo),
+          });
+          desfechoReal = String(novo ?? "pendente");
+        }
+
+        await context.supabase.rpc("registrar_evento_tecnico", {
+          _tipo: "etapa",
+          _etapa: etapa.papel,
+          _provedor: "openai",
+          _modelo: modelo,
+          _duracao_ms: resultado.duracaoMs,
+          _status: statusEvento,
+          _codigo_erro: codigoErro as never,
+          _tentativas: etapa.tentativa,
+          _custo: resultado.uso.custoUsd,
+          _chat_id: (execucao?.chat_id ?? null) as never,
+          _tokens_entrada: resultado.uso.tokensEntrada,
+          _tokens_saida: resultado.uso.tokensSaida,
+        });
+
+        return {
+          avancou: true as const,
+          papel: etapa.papel,
+          desfecho: desfechoReal,
+          codigoErro,
+          mensagem: resultado.ok ? null : MENSAGEM_SEGURA[resultado.codigo],
+        };
+      }
+    }
 
     // O adaptador do papel corrente enxerga apenas o que já foi persistido nesta execução.
     const { data: idsEtapas } = await context.supabase
@@ -220,7 +324,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
     const simulado = executarAdaptadorSimulado(etapa.papel as PapelAgente, {
       execucaoId: data.id,
-      formato: execucao?.formato_solicitado ?? "hook",
+      formato: formatoExec,
       anteriores: (anteriores ?? []) as ResultadoAnterior[],
     });
 
@@ -242,6 +346,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
         _lease_token: etapa.lease_token,
         _codigo_erro: data.simular === "incerto" ? "unknown_outcome" : "provider_error",
         _incerto: data.simular === "incerto",
+        _sem_retry: false,
       });
       if (e) erro(e.message);
       desfecho = String(novo);
@@ -258,9 +363,11 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       _tentativas: etapa.tentativa,
       _custo: 0,
       _chat_id: null as never,
+      _tokens_entrada: 0,
+      _tokens_saida: 0,
     });
 
-    return { avancou: true as const, papel: etapa.papel, desfecho };
+    return { avancou: true as const, papel: etapa.papel, desfecho, codigoErro: null, mensagem: null };
   });
 
 export const cancelarExecucao = createServerFn({ method: "POST" })

@@ -191,6 +191,8 @@ export type Database = {
           status: string
           tentativas: number
           tipo: string
+          tokens_entrada: number
+          tokens_saida: number
           user_id: string
         }
         Insert: {
@@ -206,6 +208,8 @@ export type Database = {
           status: string
           tentativas?: number
           tipo: string
+          tokens_entrada?: number
+          tokens_saida?: number
           user_id?: string
         }
         Update: {
@@ -221,6 +225,8 @@ export type Database = {
           status?: string
           tentativas?: number
           tipo?: string
+          tokens_entrada?: number
+          tokens_saida?: number
           user_id?: string
         }
         Relationships: []
@@ -1152,8 +1158,9 @@ export type Database = {
         Args: {
           _codigo_erro: string
           _etapa_id: string
-          _incerto: boolean
+          _incerto?: boolean
           _lease_token: string
+          _sem_retry?: boolean
         }
         Returns: string
       }
@@ -1192,16 +1199,18 @@ export type Database = {
       }
       registrar_evento_tecnico: {
         Args: {
-          _chat_id: string
-          _codigo_erro: string
-          _custo: number
+          _chat_id?: string
+          _codigo_erro?: string
+          _custo?: number
           _duracao_ms: number
           _etapa: string
           _modelo: string
           _provedor: string
           _status: string
-          _tentativas: number
+          _tentativas?: number
           _tipo: string
+          _tokens_entrada?: number
+          _tokens_saida?: number
         }
         Returns: undefined
       }
