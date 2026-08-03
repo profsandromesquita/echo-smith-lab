@@ -34,16 +34,27 @@ Analista (`json_schema` estrito, `additionalProperties:false`, revalidado com Zo
 - `conflito_inconsciente`, `dor_aparente`, `tensao_subjacente`, `diretriz_criativa` (uma única diretriz), `resumo_seguro` (string curta, exibível);
 - `angulos_recomendados`, `angulos_a_evitar`, `riscos_eticos` (arrays de string).
 
-Auditor — objeto `{ avaliacoes: [...] }`, um item por variação:
-- `resultado_id`; notas 0–10 em `impacto_emocional`, `clareza_consequencia`, `ritmo_leitura`, `adequacao_formato`, `adequacao_voz_marca`, `ausencia_cliches`, `confianca_avaliacao`; `aprovado` (boolean); `motivo_curto`; `instrucao_correcao` (string ou null); `alertas` (array de string).
+Auditor — objeto `{ avaliacoes: [...] }`, um item por variação do lote:
+- `resultado_id`; notas 0–10 em `impacto_emocional`, `clareza_consequencia`, `ritmo_leitura`, `adequacao_formato`, `ausencia_cliches`, `confianca_avaliacao`; `aprovado` (boolean); `motivo_curto`; `instrucao_correcao` (string ou null); `alertas` (array de string);
+- Voz de Marca com par explícito: `voz_marca_avaliavel` (boolean) e `adequacao_voz_marca` (número 0–10 ou null).
 
-Revalidação local obrigatória: quantidade de avaliações igual à de variações enviadas, `resultado_id` pertencente ao conjunto enviado, notas dentro de 0–10, `instrucao_correcao` presente somente quando `aprovado = false`. Falha de schema após uma única rechamada = `resposta_invalida`, sem reparo manual de JSON.
+Regras da Voz de Marca: com `voz_marca_avaliavel = true` a nota é obrigatória; com `false` ela deve ser exatamente `null`. Nunca se inventa nota, e a ausência de autorização jamais reduz a nota da variação — o fator é neutralizado no ranking e a interface exibe "não avaliado", nunca zero.
+
+Integridade das avaliações (validação local, rejeição total do lote em caso de violação):
+- cada `resultado_id` enviado aparece exatamente uma vez;
+- nenhum duplicado, nenhum ausente, nenhum desconhecido, nenhuma avaliação órfã;
+- quantidade exatamente igual à do lote enviado;
+- notas dentro de 0–10 e `instrucao_correcao` presente somente quando `aprovado = false`.
+
+Falha de schema ou de integridade após uma única rechamada = `resposta_invalida`, sem reparo manual de JSON e sem aproveitamento parcial do lote.
 
 ## 3. Dados enviados
 
 Analista: briefing estruturado autorizado, público, dor, promessa, contexto, objetivo, nível de consciência, formato solicitado e restrições éticas explícitas. Nada de histórico, resultados de especialistas, exemplos locais, preferências inferidas, Secrets ou prompts internos.
 
 Auditor: briefing estruturado, diretriz psicológica, formatos solicitados, objetivo, regras de Voz de Marca somente se autorizadas, as variações a auditar (id, texto, formato) e os critérios/pesos aplicáveis. Nada de dados de outras contas nem de memória local.
+
+A auditoria roda em lotes por formato, preferencialmente cinco variações por chamada. Cada lote é uma chamada independente, com validação, persistência, timeout, lease, retry, cancelamento e `unknown_outcome` próprios: falha em um formato não apaga auditorias já persistidas de outro, e a execução pode terminar parcialmente concluída. Nenhuma variação chega ao ranking sem auditoria válida.
 
 ## 4. Configuração de raciocínio
 
@@ -66,8 +77,12 @@ Hook Master e Headline Architect continuam idênticos. O Auditor lê as variaç�
 ## 7. Consentimentos
 
 Revalidação server-side antes de cada chamada, reutilizando `categoriaAutorizada` e a fotografia vinculada à execução: categoria, provedor OpenAI, modelo, papel, etapa, finalidade, termos e versão.
+
+Nova categoria de consentimento `variacoes_para_auditoria` (conteúdo gerado), adicionada ao catálogo de categorias e ao texto do modal: informa de forma explícita que textos produzidos pela Anthropic poderão ser enviados à OpenAI para avaliação, com finalidade, provedor e retenção declarados.
+
 - Analista: exige `briefing` autorizado; sem isso, `autorizacao_ausente`, sem retry, nada enviado.
-- Auditor: exige `briefing`; inclui resumo de Voz de Marca somente com `resumo_voz_marca` concedido, senão o campo vai nulo e o critério é marcado como não avaliável.
+- Auditor: antes de cada lote valida no servidor `briefing` (quando faz parte da entrada), `variacoes_para_auditoria` (obrigatória) e `resumo_voz_marca` (quando usado), além de provedor OpenAI, papel/etapa Auditor, finalidade, termos e versão. Sem autorização das variações, nenhuma auditoria externa ocorre: a etapa falha com `autorizacao_ausente`, sem retry e sem envio.
+- Sem `resumo_voz_marca`, a Voz de Marca não é enviada e o item volta com `voz_marca_avaliavel = false` e nota `null` — sem penalização.
 - Memória Local Estrita segue bloqueando exemplos locais, preferências inferidas e memória adaptativa. Sem fallback silencioso.
 
 ## 8. Segurança e prompt injection
@@ -80,7 +95,7 @@ O Auditor real produz o feedback; a etapa corretora permanece simulada e passa a
 
 ## 10. Ranking
 
-Permanece determinístico e com pesos versionados. Passa a consumir notas reais mapeadas para os fatores existentes em `src/lib/ranking.ts` (`nota_auditor`, `objetivo`, `formato`, `voz_marca`, `sem_cliches`, `confianca`), normalizadas da escala 0–10. Sem Voz de Marca autorizada, o fator é neutralizado no cálculo em vez de receber nota inventada. Sem LLM ponderador.
+Permanece determinístico e com pesos versionados. Passa a consumir notas reais mapeadas para os fatores existentes em `src/lib/ranking.ts` (`nota_auditor`, `objetivo`, `formato`, `voz_marca`, `sem_cliches`, `confianca`), normalizadas da escala 0–10. Quando `voz_marca_avaliavel = false`, o fator `voz_marca` é removido do somatório e do divisor de pesos — neutralização real, sem zero implícito e sem penalizar quem não autorizou o envio. Variação sem auditoria válida não entra no ranking. Sem LLM ponderador.
 
 ## 11. Registry
 
@@ -88,7 +103,7 @@ Migração ampliando `registry_validar`: OpenAI permitido para `gatekeeper`, `an
 
 ## 12. Máquina de estados
 
-Sem alterações: reserva, lease, backoff, tentativas, timeout, cancelamento, resposta tardia, `unknown_outcome`, telemetria, versão do Registry e persistência parcial seguem como estão. Falha do Auditor preserva as variações e impede promoção automática para a curadoria final.
+Sem alterações: reserva, lease, backoff, tentativas, timeout, cancelamento, resposta tardia, `unknown_outcome`, telemetria, versão do Registry e persistência parcial seguem como estão. A auditoria em lotes usa a persistência parcial já existente: cada lote validado é gravado de forma independente e retomado sem reprocessar o que já foi persistido. Falha do Auditor preserva as variações e impede promoção automática para a curadoria final.
 
 ## 13. Observabilidade
 
@@ -106,7 +121,8 @@ Alterados:
 - `src/lib/adaptadores-simulados.ts` — correção simulada consumindo feedback real.
 - `src/lib/ranking.ts` e mapeamento de fatores — notas reais.
 - `src/lib/execucao.ts` e `PainelExecucao.tsx` — estados e rótulos seguros de análise e auditoria.
-- Migração SQL de `registry_validar`.
+- Catálogo de categorias de consentimento e `ModalConsentimento.tsx` — nova categoria `variacoes_para_auditoria` com texto explícito sobre envio à OpenAI.
+- Migração SQL de `registry_validar` e da nova categoria de consentimento.
 
 ## 15. Sequência de implementação
 
@@ -116,11 +132,12 @@ Alterados:
 4. Migração do Registry e validação.
 5. Roteamento real do Analista e telemetria.
 6. Módulos do Auditor (schema por item, validação, alertas).
-7. Roteamento real do Auditor e persistência das auditorias.
-8. Consumo do feedback real pela correção simulada e pelo ranking.
-9. Testes administrativos sintéticos dos dois papéis.
-10. Ajustes de interface e mensagens seguras.
-11. Regressão F1–F6B, build, tipos e console.
+7. Nova categoria de consentimento `variacoes_para_auditoria` (migração, fotografia e modal).
+8. Roteamento real do Auditor em lotes por formato, com validação de integridade e persistência por lote.
+9. Consumo do feedback real pela correção simulada e pelo ranking.
+10. Testes administrativos sintéticos dos dois papéis.
+11. Ajustes de interface e mensagens seguras.
+12. Regressão F1–F6B, build, tipos e console.
 
 ## 16. Riscos
 
@@ -134,7 +151,10 @@ Alterados:
 
 - Analista e Auditor executam com chamada real ao GPT-5.6 Sol, versões publicadas no Registry.
 - Diretriz real chega aos especialistas Anthropic; notas reais chegam ao ranking determinístico.
-- Sem consentimento, nada é enviado e a etapa falha com mensagem segura.
+- Sem consentimento, nada é enviado e a etapa falha com mensagem segura; sem `variacoes_para_auditoria` não há auditoria externa.
+- Nenhuma avaliação com id duplicado, ausente, desconhecido ou órfão é aceita; lote inválido é descartado inteiro.
+- Voz de Marca não autorizada retorna `voz_marca_avaliavel = false` com nota `null`, neutralizada no ranking e exibida como "não avaliado".
+- Falha em um lote/formato não apaga auditorias já persistidas de outro; a execução pode ficar parcialmente concluída.
 - Recusa, saída inválida ou truncada nunca viram diretriz ou nota inventada.
 - Correção única preservada; item reprovado após a correção fica fora da curadoria.
 - Interface mostra apenas estados seguros; nenhum raciocínio ou payload bruto.
@@ -142,7 +162,7 @@ Alterados:
 
 ## 18. Testes
 
-Análise isolada; auditoria isolada; pipeline completo com Gatekeeper, Analista, especialistas e Auditor reais; briefing suficiente e insuficiente; conteúdo sensível; prevenção de diagnóstico; injeção no briefing e dentro de uma variação; notas 0–10; aprovação, reprovação, instrução de correção, correção única, item fora da curadoria; ranking com notas reais; consentimento ausente e concedido; Voz de Marca autorizada e não autorizada; recusa; saída inválida; saída truncada; timeout; rate limit; retry; cancelamento; resposta tardia; `unknown_outcome`; custo; isolamento entre contas; testes administrativos sintéticos; nenhuma chamada ao Llama; regressão F1–F6B; build, tipos e console limpos.
+Análise isolada; auditoria isolada; pipeline completo com Gatekeeper, Analista, especialistas e Auditor reais; briefing suficiente e insuficiente; conteúdo sensível; prevenção de diagnóstico; injeção no briefing e dentro de uma variação; notas 0–10; aprovação, reprovação, instrução de correção, correção única, item fora da curadoria; ranking com notas reais; consentimento ausente e concedido; consentimento de `variacoes_para_auditoria` negado (nenhum envio) e concedido; Voz de Marca autorizada e não autorizada (`voz_marca_avaliavel = false` sem penalização); avaliações com id duplicado, ausente, desconhecido e órfão; lotes por formato com falha isolada e persistência parcial; recusa; saída inválida; saída truncada; timeout; rate limit; retry; cancelamento; resposta tardia; `unknown_outcome`; custo; isolamento entre contas; testes administrativos sintéticos; nenhuma chamada ao Llama; regressão F1–F6B; build, tipos e console limpos.
 
 ## 19. Confirmação de escopo
 
