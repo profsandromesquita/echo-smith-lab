@@ -134,6 +134,86 @@ function somar(a: UsoProvedor, b: UsoProvedor): UsoProvedor {
   };
 }
 
+export type ResultadoEstruturado<T> =
+  | { ok: true; dados: T; uso: UsoProvedor; duracaoMs: number }
+  | {
+      ok: false;
+      codigo: CodigoErroProvedor;
+      mensagemSegura: string;
+      uso: UsoProvedor;
+      duracaoMs: number;
+      incerto?: boolean;
+    };
+
+/**
+ * Runner genérico da Anthropic: monta o envelope, chama o adaptador e revalida
+ * localmente. Uma única rechamada controlada quando a saída viola o schema.
+ * Nunca repara JSON manualmente.
+ */
+export async function executarEstruturadoAnthropic<T>(args: {
+  config: ConfigEspecialista;
+  conteudoUsuario: string;
+  instrucoesPapel: string;
+  nomeSchema: string;
+  schema: Record<string, unknown>;
+  validador: { safeParse: (v: unknown) => { success: boolean; data?: T } };
+  chaveIdempotencia: string;
+  sinal?: AbortSignal;
+}): Promise<ResultadoEstruturado<T>> {
+  const provedor = criarProvedorAnthropic();
+  const instrucoes = `${args.instrucoesPapel} ${REGRAS_FIXAS}\n\n${args.config.instrucoesSistema}`.slice(
+    0,
+    8000,
+  );
+
+  let uso = USO_ZERO;
+  let duracao = 0;
+
+  for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+    const bruta: RespostaProvedor = await provedor.gerarEstruturado({
+      modelo: args.config.modelo,
+      instrucoesSistema: instrucoes,
+      conteudoUsuario: args.conteudoUsuario,
+      nomeSchema: args.nomeSchema,
+      schemaSaida: args.schema,
+      esforcoRaciocinio: args.config.esforco,
+      limiteSaida: args.config.limiteSaida,
+      timeoutMs: args.config.timeoutMs,
+      chaveIdempotencia: `${args.chaveIdempotencia}:${tentativa}`,
+      ...(args.sinal ? { sinal: args.sinal } : {}),
+    });
+
+    uso = somar(uso, bruta.uso);
+    duracao += bruta.duracaoMs;
+
+    if (!bruta.ok) {
+      if (bruta.codigo === "resposta_invalida" && tentativa === 0) continue;
+      return {
+        ok: false,
+        codigo: bruta.codigo,
+        mensagemSegura: bruta.mensagemSegura,
+        uso,
+        duracaoMs: duracao,
+        ...(bruta.incerto ? { incerto: true } : {}),
+      };
+    }
+
+    const analise = args.validador.safeParse(bruta.dados);
+    if (analise.success && analise.data !== undefined) {
+      return { ok: true, dados: analise.data, uso, duracaoMs: duracao };
+    }
+    if (tentativa === 1) break;
+  }
+
+  return {
+    ok: false,
+    codigo: "resposta_invalida",
+    mensagemSegura: MENSAGEM_SEGURA["resposta_invalida"],
+    uso,
+    duracaoMs: duracao,
+  };
+}
+
 /**
  * Uma única rechamada controlada quando a resposta não cumpre o schema.
  * Nenhuma tentativa de reparar JSON manualmente.
