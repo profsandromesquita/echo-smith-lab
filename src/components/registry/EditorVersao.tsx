@@ -354,6 +354,27 @@ export function EditorVersao({
                   Usa apenas briefing sintético, não cria execução de usuário e pode gerar custo no
                   provedor.
                 </p>
+                {anthropic && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="esforco-comparado">Comparar com outro nível de esforço</Label>
+                    <Select value={esforcoComparado} onValueChange={setEsforcoComparado}>
+                      <SelectTrigger id="esforco-comparado">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nenhum">Não comparar</SelectItem>
+                        <SelectItem value="low">Baixo</SelectItem>
+                        <SelectItem value="medium">Médio</SelectItem>
+                        <SelectItem value="high">Alto</SelectItem>
+                        <SelectItem value="xhigh">Muito alto</SelectItem>
+                        <SelectItem value="max">Máximo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Comparar dispara uma segunda chamada real e dobra o custo do teste.
+                    </p>
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
                     checked={confirmarReal}
