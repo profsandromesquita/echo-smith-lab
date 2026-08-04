@@ -228,6 +228,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         <ModalConsentimento
           aberto={autorizando}
           chatId={chatId}
+          execucaoId={execucaoId}
           permissoes={[
             {
               categoria: "briefing",
@@ -239,7 +240,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           aoFechar={() => {
             setAutorizando(false);
           }}
-          aoConceder={() => desbloquear.mutate({ id: execucaoId, categoria: "briefing" })}
+          aoConceder={() => void invalidar()}
         />
 
         {incerta && (
