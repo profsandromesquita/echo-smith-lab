@@ -150,6 +150,10 @@ export const obterExecucao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: uuid }).strict().parse(d))
   .handler(async ({ context, data }) => {
+    // Reconcilia consentimentos já registrados com etapas ainda bloqueadas.
+    // Torna o reload suficiente quando a interface cai entre autorizar e atualizar.
+    await context.supabase.rpc("reconciliar_consentimento_execucao", { _execucao_id: data.id });
+
     const { data: execucao, error } = await context.supabase
       .from("execucoes")
       .select(
