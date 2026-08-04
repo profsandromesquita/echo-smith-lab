@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/f6d-probe")({
             const m = await import(/* @vite-ignore */ "tanstack-start-server-fn-manifest:v" as string);
             return Response.json({ ok: true, ids: Object.keys((m as { default: Record<string, unknown> }).default) });
           }
-          const mod = await import(`../../../lib/${alvo}.functions.ts`);
+          const mod = await import(/* @vite-ignore */ `/src/lib/${alvo}.functions.ts?tss-serverfn-split`);
           return Response.json({ ok: true, chaves: Object.keys(mod) });
         } catch (e) {
           const err = e as Error;
