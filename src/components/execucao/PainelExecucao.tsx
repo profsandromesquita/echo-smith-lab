@@ -169,6 +169,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
 
   const incerta = etapas.find((e) => e.estado === "resultado_incerto");
   const bloqueadas = etapas.filter((e) => e.estado === "bloqueada");
+
+  // As categorias vêm das etapas realmente bloqueadas; o servidor deriva provedor e finalidade.
+  const permissoesPendentes = [
+    ...new Set(
+      bloqueadas
+        .map((e) => e.categoria_requerida)
+        .filter((c): c is string => Boolean(c && DETALHE_CATEGORIA[c])),
+    ),
+  ].map((c) => ({ categoria: c as never, ...DETALHE_CATEGORIA[c]! }));
   const encerrada = estado
     ? ["concluida", "parcialmente_concluida", "falhou", "cancelada"].includes(estado)
     : false;
