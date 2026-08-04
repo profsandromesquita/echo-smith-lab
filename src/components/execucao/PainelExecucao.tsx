@@ -222,14 +222,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           aberto={autorizando}
           chatId={chatId}
           execucaoId={execucaoId}
-          permissoes={[
-            {
-              categoria: "briefing",
-              provedor: "Provedor de nuvem A",
-              etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
-              finalidade: "Interpretar o briefing e produzir as variações auditadas",
-            },
-          ]}
+          permissoes={permissoesPendentes}
           aoFechar={() => {
             setAutorizando(false);
           }}
