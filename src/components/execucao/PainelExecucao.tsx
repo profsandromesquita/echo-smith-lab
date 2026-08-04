@@ -71,6 +71,30 @@ const FORMATOS: Array<{ valor: string; rotulo: string }> = [
 
 const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento"];
 
+/** Texto exibido por categoria. Provedor e finalidade reais são derivados no servidor. */
+const DETALHE_CATEGORIA: Record<string, { provedor: string; etapa: string; finalidade: string }> = {
+  briefing: {
+    provedor: "Provedores em nuvem do Registry",
+    etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
+    finalidade: "Interpretar o briefing e produzir as variações auditadas",
+  },
+  variacoes_para_auditoria: {
+    provedor: "Provedor de nuvem da auditoria",
+    etapa: "Auditoria e auditoria final",
+    finalidade: "Avaliar qualidade e conformidade das variações desta execução",
+  },
+  feedback_para_correcao: {
+    provedor: "Provedor de nuvem dos especialistas",
+    etapa: "Correção única",
+    finalidade: "Enviar as observações da auditoria para a correção única desta execução",
+  },
+  resumo_voz_marca_explicita: {
+    provedor: "Provedor de nuvem dos especialistas",
+    etapa: "Especialistas",
+    finalidade: "Adequar as variações ao perfil explícito de voz de marca",
+  },
+};
+
 export function PainelExecucao({ chatId }: { chatId: string }) {
   const cliente = useQueryClient();
   const [formato, setFormato] = useState<string>("hook");
