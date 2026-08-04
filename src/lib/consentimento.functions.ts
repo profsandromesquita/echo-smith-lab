@@ -166,3 +166,35 @@ export const autorizarExecucao = createServerFn({ method: "POST" })
       desbloqueadas: Number(saida.desbloqueadas ?? 0),
     };
   });
+
+/**
+ * Consentimento persistente (chat ou conta) concedido a partir de uma execução aberta.
+ * O cliente envia apenas execução, categorias e escopo; o servidor deriva usuário, chat,
+ * fotografia, papel, provedor, finalidade e termos, persiste o consentimento no escopo
+ * escolhido e, na mesma operação, libera só as etapas bloqueadas desta execução.
+ */
+export const autorizarExecucaoPersistente = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        execucaoId: uuid,
+        categorias: z.array(categoria).min(1).max(8),
+        escopo: z.enum(["chat", "conta"]),
+      })
+      .strict()
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: r, error } = await context.supabase.rpc("autorizar_execucao_persistente", {
+      _execucao_id: data.execucaoId,
+      _categorias: data.categorias,
+      _escopo: data.escopo,
+    });
+    if (error) erro("Não foi possível registrar essa autorização.");
+    const saida = (r ?? {}) as { concedidas?: string[]; desbloqueadas?: number };
+    return {
+      concedidas: saida.concedidas ?? [],
+      desbloqueadas: Number(saida.desbloqueadas ?? 0),
+    };
+  });
