@@ -50,12 +50,17 @@ export const ROTULO_CATEGORIA: Record<string, string> = {
   metadados: "Metadados técnicos",
   variacoes_para_auditoria: "Variações geradas para auditoria",
   feedback_para_correcao: "Feedback da auditoria para correção",
+  resumo_voz_marca_explicita: "Resumo explícito da voz de marca",
+  memoria_local_estilo: "Memória local de estilo",
+  exemplos_locais: "Exemplos locais",
+  preferencias_inferidas: "Preferências inferidas",
 };
 
 export const ROTULO_ESCOPO: Record<string, string> = {
   conta: "toda a conta",
   pasta: "uma pasta",
   chat: "este chat",
+  execucao: "apenas esta execução",
 };
 
 export const rotuloOrigemModo = (origem: "chat" | "padrao") =>

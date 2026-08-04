@@ -1168,6 +1168,10 @@ export type Database = {
         Args: { _execucao_id: string; _motivo: string; _para: string }
         Returns: undefined
       }
+      autorizar_execucao: {
+        Args: { _categorias: string[]; _execucao_id: string }
+        Returns: Json
+      }
       cancelar_execucao: { Args: { _execucao_id: string }; Returns: undefined }
       cancelar_solicitacao_conta: { Args: { _id: string }; Returns: boolean }
       chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
@@ -1225,6 +1229,10 @@ export type Database = {
       pesos_ranking_da_execucao: {
         Args: { _execucao_id: string }
         Returns: Json
+      }
+      reconciliar_consentimento_execucao: {
+        Args: { _execucao_id: string }
+        Returns: number
       }
       reconciliar_custo: {
         Args: { _chave: string; _custo_real: number; _execucao_id: string }

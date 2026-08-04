@@ -35,7 +35,6 @@ import {
   avancarExecucao,
   cancelarExecucao,
   criarExecucao,
-  desbloquearEtapas,
   resolverIncerto,
 } from "@/lib/execucao.functions";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
@@ -72,6 +71,30 @@ const FORMATOS: Array<{ valor: string; rotulo: string }> = [
 
 const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento"];
 
+/** Texto exibido por categoria. Provedor e finalidade reais são derivados no servidor. */
+const DETALHE_CATEGORIA: Record<string, { provedor: string; etapa: string; finalidade: string }> = {
+  briefing: {
+    provedor: "Provedores em nuvem do Registry",
+    etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
+    finalidade: "Interpretar o briefing e produzir as variações auditadas",
+  },
+  variacoes_para_auditoria: {
+    provedor: "Provedor de nuvem da auditoria",
+    etapa: "Auditoria e auditoria final",
+    finalidade: "Avaliar qualidade e conformidade das variações desta execução",
+  },
+  feedback_para_correcao: {
+    provedor: "Provedor de nuvem dos especialistas",
+    etapa: "Correção única",
+    finalidade: "Enviar as observações da auditoria para a correção única desta execução",
+  },
+  resumo_voz_marca_explicita: {
+    provedor: "Provedor de nuvem dos especialistas",
+    etapa: "Especialistas",
+    finalidade: "Adequar as variações ao perfil explícito de voz de marca",
+  },
+};
+
 export function PainelExecucao({ chatId }: { chatId: string }) {
   const cliente = useQueryClient();
   const [formato, setFormato] = useState<string>("hook");
@@ -106,12 +129,6 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
 
   const resolver = useMutation({
     mutationFn: (v: { etapaId: string; retomar: boolean }) => resolverIncerto({ data: v }),
-    onSuccess: invalidar,
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const desbloquear = useMutation({
-    mutationFn: (v: { id: string; categoria: "briefing" }) => desbloquearEtapas({ data: v }),
     onSuccess: invalidar,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -176,6 +193,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
 
   const incerta = etapas.find((e) => e.estado === "resultado_incerto");
   const bloqueadas = etapas.filter((e) => e.estado === "bloqueada");
+
+  // As categorias vêm das etapas realmente bloqueadas; o servidor deriva provedor e finalidade.
+  const permissoesPendentes = [
+    ...new Set(
+      bloqueadas
+        .map((e) => e.categoria_requerida)
+        .filter((c): c is string => Boolean(c && DETALHE_CATEGORIA[c])),
+    ),
+  ].map((c) => ({ categoria: c as never, ...DETALHE_CATEGORIA[c]! }));
   const encerrada = estado
     ? ["concluida", "parcialmente_concluida", "falhou", "cancelada"].includes(estado)
     : false;
@@ -228,18 +254,12 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         <ModalConsentimento
           aberto={autorizando}
           chatId={chatId}
-          permissoes={[
-            {
-              categoria: "briefing",
-              provedor: "Provedor de nuvem A",
-              etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
-              finalidade: "Interpretar o briefing e produzir as variações auditadas",
-            },
-          ]}
+          execucaoId={execucaoId}
+          permissoes={permissoesPendentes}
           aoFechar={() => {
             setAutorizando(false);
           }}
-          aoConceder={() => desbloquear.mutate({ id: execucaoId, categoria: "briefing" })}
+          aoConceder={() => void invalidar()}
         />
 
         {incerta && (

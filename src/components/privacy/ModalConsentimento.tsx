@@ -12,7 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { decidirConsentimento, montarFotografiaSimulada } from "@/lib/consentimento.functions";
+import {
+  autorizarExecucao,
+  decidirConsentimento,
+  montarFotografiaSimulada,
+} from "@/lib/consentimento.functions";
 import { chavesPrivacidade, ROTULO_CATEGORIA, type ModoPrivacidade } from "@/lib/privacidade";
 
 export interface PermissaoSolicitada {
@@ -22,18 +26,22 @@ export interface PermissaoSolicitada {
     | "texto_gerado"
     | "metadados"
     | "variacoes_para_auditoria"
-    | "feedback_para_correcao";
+    | "feedback_para_correcao"
+    | "resumo_voz_marca_explicita";
   provedor: string;
   etapa: string;
   finalidade: string;
 }
 
-/** Em memória local estrita, estas categorias ficam indisponíveis. */
+/**
+ * Em memória local estrita só a memória privada do dispositivo fica indisponível.
+ * Processamento em nuvem continua autorizável de forma explícita, execução a execução.
+ */
 const BLOQUEADAS_EM_LOCAL_ESTRITA = [
+  "memoria_local_estilo",
+  "exemplos_locais",
+  "preferencias_inferidas",
   "resumo_voz_marca",
-  "texto_gerado",
-  "variacoes_para_auditoria",
-  "feedback_para_correcao",
 ];
 
 export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
@@ -75,6 +83,8 @@ interface Props {
   aberto: boolean;
   aoFechar: () => void;
   chatId?: string | null;
+  /** Quando presente, "Apenas esta execução" grava na fotografia desta execução. */
+  execucaoId?: string | null;
   modo?: ModoPrivacidade;
   permissoes?: PermissaoSolicitada[];
   /** Chamado só quando a autorização é efetivamente concedida. */
@@ -85,6 +95,7 @@ export function ModalConsentimento({
   aberto,
   aoFechar,
   chatId = null,
+  execucaoId = null,
   modo = "local_estrita",
   permissoes = PERMISSOES_PADRAO,
   aoConceder,
@@ -151,13 +162,25 @@ export function ModalConsentimento({
     onError: () => toast.error("Não foi possível registrar a recusa."),
   });
 
-  /**
-   * "Apenas esta execução" ainda não tem execução real a que se vincular.
-   * A fotografia é montada e mostrada, mas não é gravada — evitar registro órfão.
-   */
   const apenasEstaExecucao = async () => {
     setOcupado(true);
     try {
+      if (execucaoId) {
+        // O cliente envia só a execução e as categorias; o servidor deriva o resto.
+        const r = await autorizarExecucao({
+          data: {
+            execucaoId,
+            categorias: [...new Set(disponiveis.map((p) => p.categoria))],
+          },
+        });
+        await invalidar();
+        toast.success("Autorização válida só para esta execução.", {
+          description: `${r.desbloqueadas} etapa(s) liberada(s). Nada fica autorizado para execuções futuras.`,
+        });
+        aoConceder?.();
+        aoFechar();
+        return;
+      }
       const r = await montarFotografiaSimulada({
         data: {
           permissoes: disponiveis.map((p) => ({ ...p, decisao: "concedido" as const })),
