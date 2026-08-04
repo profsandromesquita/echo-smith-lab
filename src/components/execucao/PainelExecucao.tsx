@@ -35,7 +35,6 @@ import {
   avancarExecucao,
   cancelarExecucao,
   criarExecucao,
-  desbloquearEtapas,
   resolverIncerto,
 } from "@/lib/execucao.functions";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
@@ -106,12 +105,6 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
 
   const resolver = useMutation({
     mutationFn: (v: { etapaId: string; retomar: boolean }) => resolverIncerto({ data: v }),
-    onSuccess: invalidar,
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const desbloquear = useMutation({
-    mutationFn: (v: { id: string; categoria: "briefing" }) => desbloquearEtapas({ data: v }),
     onSuccess: invalidar,
     onError: (e: Error) => toast.error(e.message),
   });
