@@ -19,6 +19,7 @@ import { Route as AuthenticatedConfigIaLocalRouteImport } from './routes/_authen
 import { Route as AuthenticatedConfigPreferenciasRouteImport } from './routes/_authenticated/config/preferencias'
 import { Route as AuthenticatedConfigPrivacidadeRouteImport } from './routes/_authenticated/config/privacidade'
 import { Route as AuthenticatedConfigVozDeMarcaRouteImport } from './routes/_authenticated/config/voz-de-marca'
+import { Route as ApiPublicF6dProbeRouteImport } from './routes/api/public/f6d-probe'
 import { Route as AuthenticatedAppCChatIdRouteImport } from './routes/_authenticated/app/c.$chatId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -75,6 +76,11 @@ const AuthenticatedConfigVozDeMarcaRoute =
     path: '/config/voz-de-marca',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicF6dProbeRoute = ApiPublicF6dProbeRouteImport.update({
+  id: '/api/public/f6d-probe',
+  path: '/api/public/f6d-probe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppCChatIdRoute = AuthenticatedAppCChatIdRouteImport.update({
   id: '/app/c/$chatId',
   path: '/app/c/$chatId',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
   '/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
   '/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/api/public/f6d-probe': typeof ApiPublicF6dProbeRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
   '/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
   '/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/api/public/f6d-probe': typeof ApiPublicF6dProbeRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/config/preferencias': typeof AuthenticatedConfigPreferenciasRoute
   '/_authenticated/config/privacidade': typeof AuthenticatedConfigPrivacidadeRoute
   '/_authenticated/config/voz-de-marca': typeof AuthenticatedConfigVozDeMarcaRoute
+  '/api/public/f6d-probe': typeof ApiPublicF6dProbeRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/c/$chatId': typeof AuthenticatedAppCChatIdRoute
 }
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/config/preferencias'
     | '/config/privacidade'
     | '/config/voz-de-marca'
+    | '/api/public/f6d-probe'
     | '/app/'
     | '/app/c/$chatId'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/config/preferencias'
     | '/config/privacidade'
     | '/config/voz-de-marca'
+    | '/api/public/f6d-probe'
     | '/app'
     | '/app/c/$chatId'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/_authenticated/config/preferencias'
     | '/_authenticated/config/privacidade'
     | '/_authenticated/config/voz-de-marca'
+    | '/api/public/f6d-probe'
     | '/_authenticated/app/'
     | '/_authenticated/app/c/$chatId'
   fileRoutesById: FileRoutesById
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicF6dProbeRoute: typeof ApiPublicF6dProbeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfigVozDeMarcaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/f6d-probe': {
+      id: '/api/public/f6d-probe'
+      path: '/api/public/f6d-probe'
+      fullPath: '/api/public/f6d-probe'
+      preLoaderRoute: typeof ApiPublicF6dProbeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/app/c/$chatId': {
       id: '/_authenticated/app/c/$chatId'
       path: '/app/c/$chatId'
@@ -276,6 +296,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicF6dProbeRoute: ApiPublicF6dProbeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
