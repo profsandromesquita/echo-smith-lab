@@ -1,62 +1,53 @@
-# Matriz completa 1–13 da F6D (execução da validação)
+# F6D — Continuação da validação (blocos 4, 7, 8, 9, 11, 12, 13 + lacunas de 1, 2, 5, 6)
 
-Objetivo: executar os 13 blocos de validação da F6D com evidências citáveis, aplicar apenas correções mínimas para reprovados e fechar com veredito objetivo. Sem escopo novo e sem antecipar a próxima fase.
+Estou em Plan Mode, então nada é executado até a aprovação. A execução da matriz envolve chamadas reais pagas à OpenAI e à Anthropic, escrita em `execucoes`, `execucao_etapas`, `execucao_resultados` e `execucao_reservas_custo`, e criação de contas de teste — tudo isso é mudança de estado e precisa do seu aval.
 
-## Regras de prova
+## Reclassificação aceita
 
-- Toda verificação de RLS, isolamento, autorização e consentimento usa JWT real de conta comum. `service_role` só para preparar fixtures, promover papel admin e inspecionar depois — nunca como evidência.
-- Cada linha da matriz identifica a origem da evidência: chamada real OpenAI, chamada real Anthropic, cenário controlado (`simular`), JWT real, consulta ao banco, ou leitura de código/SQL.
-- Cenário controlado percorre a mesma máquina de estados, leases, orçamento e autorização — nunca é apresentado como prova de comportamento do provedor externo.
+A matriz final passa a usar quatro rótulos: aprovado, parcialmente aprovado, reprovado, reprovado e corrigido.
 
-## Blocos 1–13
+| Bloco | Situação de partida |
+|---|---|
+| 1 Pipeline real | parcialmente aprovado — falta CTA real |
+| 2 Correção real | parcialmente aprovado — falta Hook/Headline/CTA e bloqueio da segunda correção |
+| 3 Segunda auditoria | aprovado |
+| 5 Estados finais | parcialmente aprovado — só `concluida` comprovado |
+| 6 Voz de Marca | parcialmente aprovado — falta caso positivo e isolamento entre provedores |
+| 10 Ranking e entrega 3 de 5 | aprovado |
+| 4, 7, 8, 9, 11, 12, 13 | sem evidência |
 
-1. CTA real (Anthropic): provedor/modelo/versão do Registry na etapa, exatamente 5 CTAs, IDs e metadados gravados pelo servidor, revalidação de consentimento antes da chamada, tokens/custo/duração/stop reason. Saída inválida, recusa e truncamento terminam sem CTA persistido.
-2. Correção pelo especialista de origem: reprovação forçada em hook, headline e CTA; mesma versão do Registry da geração original, original preservado no histórico, contexto autorizado, metadados de controle no servidor, bloqueio de segunda correção.
-3. Segunda auditoria: todo corrigido é reauditado; aprovado vai ao ranking, reprovado fica fora, falha técnica impede promoção, sem terceira geração, original e corrigido não competem, histórico em quatro camadas.
-4. Grafo paralelo: execução com os três formatos; elegibilidade e barreira decididas no servidor, retomada após recarregar e em segunda sessão da mesma conta, barreira só após estado terminal de todos os especialistas, ramos concluídos preservados quando um ramo falha.
-5. Estados finais: concluída, parcialmente concluída, entrega parcial, falhou, aguardando consentimento e resultado incerto; item sem auditoria válida nunca entra em ranking ou curadoria.
-6. Consentimentos entre provedores: para cada travessia de dados, forçar ausência da categoria e confirmar que a chamada externa não ocorre, com bloqueio no servidor e não só na interface.
-7. Orçamento (ver detalhamento abaixo).
-8. Cancelamento: cancelar durante especialistas em paralelo e durante correção; sem novas reservas, sem segunda auditoria, respostas tardias descartadas, resultados só no histórico, nenhuma promoção pós-cancelamento.
-9. Resultado incerto e idempotência: registro por etapa/lote/tentativa, sem retry automático cego, chave de idempotência preservada, sem duplicatas, resolução explícita, ramos concluídos preservados.
-10. Ranking e entrega: filtros de elegibilidade, substituição da original pela corrigida aprovada, até três melhores, entrega parcial honesta abaixo de três.
-11. Segurança de metadados: respostas maliciosas tentando trocar execução, papel, formato, versão do Registry, número da correção e item original são ignoradas ou rejeitadas.
-12. Regressão e escopo: roteamento por provedor inalterado, ranking determinístico, escopo local fora, nenhuma credencial em banco/logs/frontend, regressão F1–F6C, typecheck, build, preview e console limpos.
-13. Isolamento entre contas: duas contas comuns com JWTs independentes. Conta B não acessa execução, etapas, resultados, eventos, reservas, consentimentos, originais, correções, auditorias, histórico técnico, custos nem telemetria da conta A; não avança, reserva, cancela ou resolve incerto. Conta A continua acessando e retomando a própria execução.
+A correção da assinatura de `reservar_custo` em `correcao-etapa.server.ts` fica registrada como **reprovado e corrigido** no bloco 2.
 
-## Verificação adicional: Voz de Marca por provedor
+## Como cada bloco será provado
 
-Testada de forma isolada por provedor, com JWT real:
+Reaproveito o harness já pronto em `/tmp/f6d` (JWT real por conta, chamadas ao `_serverFn` do dev server, leitura direta do banco). Nenhuma evidência já válida é reexecutada.
 
-- `resumo_voz_marca_explicita` autorizado apenas para os especialistas Anthropic: especialistas recebem o resumo; Auditor OpenAI não recebe.
-- `resumo_voz_marca_explicita` autorizado apenas para o Auditor OpenAI: Auditor recebe; especialistas Anthropic não recebem.
-- Autorização para um provedor não libera o outro em nenhuma direção (verificado na fotografia da execução e no bloqueio de etapa no servidor).
+**Lacuna 1 — CTA real.** Uma execução formato CTA em Híbrido Autorizado; conferir cinco variações, `execucao_id`, papel, formato, versão do Registry e índice do item gerados no servidor; forçar saída inválida, recusa e truncamento e conferir que nada criativo é persistido.
 
-No Auditor:
+**Lacuna 2 — roteamento da correção.** Três execuções (hook, headline, cta) com reprovação por cenário controlado; conferir que a correção volta ao mesmo especialista de origem e que uma segunda tentativa de correção sobre o mesmo item é recusada.
 
-- autorizado → `voz_marca_avaliavel = true` e `adequacao_voz_marca` com nota válida dentro da faixa;
-- não autorizado → `voz_marca_avaliavel = false`, `adequacao_voz_marca = null`, e nenhuma penalização inventada no ranking (peso neutralizado, não zerado como punição).
+**Bloco 4 — grafo paralelo.** Execução multi-formato com os três especialistas disparados de forma concorrente por duas sessões da mesma conta; verificar elegibilidade decidida no servidor, barreira só após estado terminal de todos, ramo em retry ou `resultado_incerto` segurando a barreira, reload no meio, ausência de duplicatas e um ramo falhando sem derrubar os demais.
 
-## Verificação adicional: Orçamento (bloco 7 detalhado)
+**Bloco 7 — orçamento.** Reservas disparadas em paralelo; conferir soma nunca acima do teto, recusa antes de chegar ao provedor, reconciliação do custo real, liberação apenas do excedente reservado, reserva preservada em `resultado_incerto`, bloqueio quando o teto é atingido e seleção determinística quando o saldo cobre só parte das correções.
 
-- Chamada recusada pela reserva não chega ao provedor (ausência de evento técnico de chamada e de tokens).
-- Reservas simultâneas não ultrapassam o teto da execução.
-- Custo real normalmente permanece dentro do máximo reservado.
-- `excedente_orcamento` registrado somente quando há diferença real inesperada.
-- Excedente recorrente reprova a fórmula de reserva (e vira correção mínima na fórmula, não aumento arbitrário de teto).
-- Após exceder o teto, nenhuma nova chamada é iniciada.
-- Resultado incerto mantém a reserva até resolução explícita.
-- Reconciliação libera apenas saldo não consumido, nunca saldo já consumido.
-- Seleção determinística quando o saldo cobre só parte das correções: nota, confiança, prioridade de formato, ordem de criação.
+**Bloco 8 — cancelamento.** Cancelar durante o paralelismo, durante a correção e antes da segunda auditoria, incluindo resposta tardia do provedor; conferir ausência de novas reservas e de promoção de resultado após o cancelamento.
 
-## Correções
+**Bloco 9 — incerteza e idempotência.** Interromper a persistência de um lote; conferir registro por etapa, lote e tentativa, mesma chave de idempotência no reenvio, ausência de retry automático cego, ausência de duplicata, resolução explícita e preservação dos ramos já concluídos.
 
-Somente correções mínimas para requisitos reprovados, cada uma registrada na matriz. Reprovado que exija mudança estrutural não é implementado: é reportado com a decisão devolvida a você.
+**Lacuna 5 — estados finais.** Provocar `parcialmente_concluida` com entrega parcial, `falhou`, `aguardando_consentimento` e `resultado_incerto`, além do `concluida` já comprovado.
 
-## Fora de escopo
+**Lacuna 6 — Voz de Marca por provedor.** Quatro execuções: autorização só para Anthropic, só para OpenAI, nenhuma e ambas; conferir nota válida quando avaliável, `null` com fator neutralizado quando não, e nenhuma propagação de autorização entre provedores.
 
-Llama, WebLLM, adaptação local, memória adaptativa, novos provedores, novos formatos e qualquer item da próxima fase.
+**Bloco 11 — metadados.** Enviar `execution_id`, item original, papel, formato, versão do Registry e número da correção adulterados; confirmar que o servidor ignora ou rejeita cada um.
 
-## Entrega final
+**Bloco 12 — regressão e escopo.** Regressão F1–F6C nos fluxos de auth, pastas, chats, perfis de marca, privacidade e Registry; typecheck; build; preview; console sem erro; varredura por credenciais no bundle cliente; confirmação de que Llama, WebLLM e adaptação local real seguem fora do escopo.
 
-Matriz com requisito, resultado, evidência (tipo e referência), status e correção mínima; lista das correções aplicadas; veredito objetivo sobre o encerramento da F6D.
+**Bloco 13 — isolamento.** Duas contas comuns com JWT real; conta B tenta ler, avançar, reservar, cancelar, autorizar e resolver recursos da execução da conta A — todas devem ser negadas.
+
+## Regras da execução
+
+Correções durante a validação ficam limitadas a regressões reais, no menor escopo possível, sempre reportadas. Nenhuma mudança de arquitetura ou de escopo entra aqui: divergência estrutural vira registro na matriz e volta ao Plan Mode. A F6D só é encerrada com os 13 blocos com evidência suficiente.
+
+## Detalhes técnicos
+
+Cenários que dependem de estado difícil de provocar por caminho natural (reprovação do auditor, resposta tardia, persistência interrompida) usam cenário controlado — migração pontual ou injeção de falha — e ficam identificados como tal na matriz, separados das evidências de chamada real de provedor. Cada linha da matriz declara o tipo de evidência: chamada real OpenAI/Anthropic, cenário controlado, JWT real, consulta ao banco ou leitura de código.
