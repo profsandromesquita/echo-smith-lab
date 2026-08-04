@@ -238,15 +238,14 @@ export async function executarEtapaCorrecao(
     modelos.add(cfg.config.modelo);
 
     const limite = LIMITE_CARACTERES[papel] ?? MAX_CARACTERES_HEADLINE;
-    const custo = Number(((cfg.orcamento / 5) * lista.length).toFixed(4));
     const chave = `correcao:${papel}:${args.etapaId}:${args.tentativa}`;
 
     // reserva atômica e autoritativa no servidor: sem orçamento, sem chamada
+    // o valor reservado é derivado no banco (custo máximo autorizado da versão fixada)
     const { data: reservado } = await supabase.rpc("reservar_custo", {
       _execucao_id: args.execucaoId,
       _etapa_id: args.etapaId,
       _chave: chave,
-      _custo: custo,
     });
     if (reservado !== true) {
       semOrcamento += lista.length;
