@@ -242,10 +242,12 @@ export async function executarEtapaCorrecao(
 
     // reserva atômica e autoritativa no servidor: sem orçamento, sem chamada
     // o valor reservado é derivado no banco (custo máximo autorizado da versão fixada)
-    const { data: reservado } = await supabase.rpc("reservar_custo", {
+    const { data: reservado } = await supabase.rpc("reservar_custo_v2", {
       _execucao_id: args.execucaoId,
       _etapa_id: args.etapaId,
-      _chave: chave,
+      _tentativa: args.tentativa,
+      _tipo: "correcao",
+      _escopo: papel,
     });
     if (reservado !== true) {
       semOrcamento += lista.length;

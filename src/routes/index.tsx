@@ -38,7 +38,9 @@ function Index() {
             </Button>
           ) : (
             <Button asChild size="sm">
-              <Link to="/auth">Entrar</Link>
+              <Link to="/auth" search={{ destino: "/app" }}>
+                Entrar
+              </Link>
             </Button>
           )}
         </nav>

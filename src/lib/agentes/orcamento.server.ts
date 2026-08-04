@@ -19,10 +19,12 @@ export async function reservarOrcamentoEtapa(
   args: { execucaoId: string; etapaId: string; tentativa: number },
 ): Promise<{ reservado: boolean; chave: string }> {
   const chave = `etapa:${args.etapaId}:${args.tentativa}`;
-  const { data: ok } = await supabase.rpc("reservar_custo", {
+  // a chave é derivada e validada no banco; o cliente nunca a define
+  const { data: ok } = await supabase.rpc("reservar_custo_v2", {
     _execucao_id: args.execucaoId,
     _etapa_id: args.etapaId,
-    _chave: chave,
+    _tentativa: args.tentativa,
+    _tipo: "etapa",
   });
   return { reservado: ok === true, chave };
 }

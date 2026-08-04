@@ -1279,6 +1279,10 @@ export type Database = {
         Args: { _chave: string; _custo_real: number; _execucao_id: string }
         Returns: undefined
       }
+      reconciliar_grafo_execucao: {
+        Args: { _execucao_id: string }
+        Returns: string
+      }
       recuperar_etapas_expiradas: {
         Args: { _execucao_id: string }
         Returns: number
@@ -1337,6 +1341,16 @@ export type Database = {
       registry_validar: { Args: { _versao_id: string }; Returns: Json }
       reservar_custo: {
         Args: { _chave: string; _etapa_id: string; _execucao_id: string }
+        Returns: boolean
+      }
+      reservar_custo_v2: {
+        Args: {
+          _escopo?: string
+          _etapa_id: string
+          _execucao_id: string
+          _tentativa: number
+          _tipo: string
+        }
         Returns: boolean
       }
       reservar_etapa: {
