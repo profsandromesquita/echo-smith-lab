@@ -14,48 +14,65 @@ Escopo: apenas correção de defeitos de máquina de estados, reserva de custo e
 
 ### A. Transições
 Ampliar a tabela branca de `aplicar_transicao_execucao`:
-`criada>cancelamento_solicitado`, `aguardando_consentimento>cancelamento_solicitado`,
-`pronta>cancelada`, `em_processamento>cancelada`,
-`pronta>falhou`, `pronta>parcialmente_concluida`, `pronta>concluida`,
-`aguardando_consentimento>falhou`, `em_processamento>aguardando_consentimento`.
-Transição para o mesmo estado continua no-op (idempotência preservada).
-Em `aplicar_transicao_etapa`, adicionar `falhou>bloqueada`, `falhou>cancelada` e `resultado_incerto>bloqueada`. Etapa `concluida` nunca é revertida.
+- Cancelamento direto, quando não há chamada ativa nem lease em andamento:
+  `criada>cancelada`, `aguardando_consentimento>cancelada`, `pronta>cancelada`, `em_processamento>cancelada`, `resultado_incerto>cancelada` (estado de execução).
+- `cancelamento_solicitado` continua existindo, mas só é usado quando há chamada ativa/lease: `pronta>cancelamento_solicitado`, `em_processamento>cancelamento_solicitado`, `resultado_incerto>cancelamento_solicitado`, e `cancelamento_solicitado>cancelada`.
+- Encerramentos vindos da reconciliação: `pronta>falhou`, `pronta>parcialmente_concluida`, `pronta>concluida`, `aguardando_consentimento>falhou`, `em_processamento>aguardando_consentimento`, `em_processamento>resultado_incerto`, `resultado_incerto>em_processamento`, `resultado_incerto>concluida`, `resultado_incerto>parcialmente_concluida`, `resultado_incerto>falhou`.
+- Transição para o mesmo estado continua no-op (idempotência preservada).
+
+Em `aplicar_transicao_etapa`, o estado terminal da etapa é preservado: **não** existem `falhou>bloqueada` nem `resultado_incerto>bloqueada`. Uma etapa que falhou permanece `falhou`; uma etapa incerta permanece `resultado_incerto` até resolução explícita. Só se adiciona `falhou>cancelada` para o encerramento por cancelamento. Etapa `concluida` nunca é revertida.
 
 ### B. `cancelar_execucao`
 - No-op quando já terminal (`cancelada`, `concluida`, `parcialmente_concluida`, `falhou`) — idempotente.
 - Lock da execução (`for update`) antes de decidir.
-- Cancela etapas `pendente` e `bloqueada` e limpa `proxima_tentativa_em`.
-- Etapas em `resultado_incerto` são preservadas (a chamada incerta não é apagada) e não impedem o encerramento.
-- Sem etapa `em_execucao`: vai direto para `cancelada`.
-- Com etapa `em_execucao`: vai para `cancelamento_solicitado`; o descarte de resposta tardia já existente em `concluir_etapa`/`falhar_etapa` fecha para `cancelada` quando a última ativa encerra.
+- Cancela etapas `pendente` e `bloqueada` (código `cancelada_por_execucao`) e limpa `proxima_tentativa_em`.
+- Etapas em `resultado_incerto` são preservadas como estão: a pendência técnica de custo e desfecho externo continua registrada e não impede o encerramento da execução.
+- Sem etapa `em_execucao` (inclusive nos estados `criada`, `aguardando_consentimento`, `pronta`, `em_processamento` sem etapa ativa e `resultado_incerto`): vai direto para `cancelada`.
+- Com etapa `em_execucao` ou lease vivo: vai para `cancelamento_solicitado`; o descarte de resposta tardia já existente em `concluir_etapa`/`falhar_etapa` fecha para `cancelada` quando a última ativa encerra.
+- Após o cancelamento: resposta tardia nunca é promovida; desfecho externo reconciliado depois serve apenas para custo e histórico técnico; cancelar de novo é no-op.
 - Custos já reservados permanecem e são reconciliados quando o valor real chegar.
 
-### C. `reservar_custo`
+### C. `reservar_custo` e chaves de idempotência
 Na mesma transação, após o `for update` da execução:
 - rejeitar (`false`) se o estado não for `pronta` nem `em_processamento`;
 - rejeitar se a etapa não pertence à execução, não está `em_execucao` ou está sem lease válido (`lease_ate >= now()`);
-- exigir que a chave corresponda à tentativa corrente (`etapa:<id>:<tentativa>`), rejeitando tentativa divergente;
-- manter idempotência por chave já existente.
+- rejeitar quando a tentativa embutida na chave divergir da tentativa corrente da etapa;
+- manter idempotência quando a mesma chave já existe.
+
+A chave **não** fica restrita a `etapa:<id>:<tentativa>`. Ela é composta e validada no servidor, com os componentes exigidos pelo tipo da chamada: etapa, tentativa e, conforme o caso, lote, especialista de origem, número da correção, item original e marca de segunda auditoria. A RPC recebe esses componentes como argumentos tipados e monta a chave; o frontend não fornece chave arbitrária como autoridade. Regras verificadas no servidor:
+- lotes diferentes geram chaves distintas e não colidem;
+- a mesma chamada repetida é idempotente;
+- correções diferentes não compartilham reserva;
+- uma segunda correção do mesmo item é rejeitada (política de correção única já vigente);
+- tentativa divergente da tentativa corrente é rejeitada.
+
 O lock de linha da execução, compartilhado com `cancelar_execucao`, resolve a disputa cancelamento x reserva: apenas uma decisão prevalece.
 
-### D. `reconciliar_grafo_execucao(_execucao_id)` — nova RPC, security definer, idempotente
+### D. `reconciliar_grafo_execucao(_execucao_id)` — nova RPC, `security definer`, `search_path` fixo, idempotente
+Segurança e locks:
+- valida a propriedade da execução (`execucao_e_minha`) quando chamada com JWT comum; nunca aceita `user_id`/proprietário vindo do cliente;
+- vive exclusivamente no servidor, sem exposição de detalhe interno de erro;
+- ordem de locks determinística: primeiro `execucoes` (`for update`), depois `execucao_etapas` ordenadas por `ordem, id`. A mesma ordem passa a valer em `cancelar_execucao`, `reservar_custo`, `concluir_etapa`, `falhar_etapa` e `resolver_resultado_incerto`, evitando deadlock;
+- não chama provedor, não reserva orçamento, não cria resultado, não promove conteúdo e não toca execução de outra conta.
+
+Lógica:
 1. Recupera etapas com lease expirado (reaproveita `recuperar_etapas_expiradas`).
-2. Para cada etapa `pendente`/`bloqueada`, avalia dependências:
-   - dependência `falhou`/`cancelada` sem resultado válido, quando o sucesso é exigido → etapa vai a `bloqueada` com `ultimo_codigo_erro = 'dependencia_falhou'`;
+2. Para cada etapa `pendente`, avalia dependências, sem alterar o estado das antecedentes:
+   - dependência `falhou`/`cancelada` sem resultado válido, quando o sucesso é exigido → a **dependente** vai a `bloqueada` com `ultimo_codigo_erro = 'dependencia_falhou'` (ou `cancelada_por_execucao` após cancelamento, ou `autorizacao_ausente` quando a barreira é de consentimento). A causa original da antecedente é preservada;
    - dependência em retry, backoff, `em_execucao` ou `resultado_incerto` → nada muda (não é falha definitiva);
    - todas as dependências terminais e existindo ao menos um lote válido → etapa segue elegível.
 3. Barreira dos especialistas: o Auditor exige todos os especialistas roteados terminais e ao menos um lote válido em `execucao_resultados`. Especialista falho não invalida os lotes dos demais. Sem nenhum lote válido, Auditor e as etapas seguintes (correção, ranking, entrega) ficam `bloqueada` com `dependencia_falhou`.
 4. Ao final, chama o cálculo de estado final (E).
 
-Chamada ao fim de `concluir_etapa`, `falhar_etapa`, `resolver_resultado_incerto` e `cancelar_execucao`, e também no início de `obterExecucao` e `reservar_etapa`, para destravar execuções antigas já presas.
+Chamada ao fim de `concluir_etapa`, `falhar_etapa`, `resolver_resultado_incerto` (com recálculo completo do estado após a resolução) e `cancelar_execucao`, e também no início de `obterExecucao` e `reservar_etapa`, para destravar execuções antigas já presas.
 
 ### E. Cálculo de estado final (somente no servidor, dentro da reconciliação)
-Substitui as contagens ad hoc de `concluir_etapa` e `falhar_etapa`:
-- `cancelada` quando o cancelamento concluiu;
-- etapa em `resultado_incerto` não fecha a execução (permanece em processamento até a resolução);
-- `aguardando_consentimento` quando as únicas pendências são autorizações obrigatórias e ainda há caminho válido;
-- `em_processamento` enquanto houver etapa elegível, em execução ou em backoff;
-- sem etapas vivas: `concluida` se todos os formatos solicitados têm resultado válido e há ao menos três itens aprovados; `parcialmente_concluida` se há conteúdo entregável mas com formato/lote perdido ou menos de três aprovados; `falhou` se nada entregável chega à curadoria.
+Substitui as contagens ad hoc de `concluir_etapa` e `falhar_etapa`. Precedência, nesta ordem:
+1. `cancelada` — o cancelamento terminou;
+2. `resultado_incerto` — existe chamada externa sem desfecho confirmado;
+3. `aguardando_consentimento` — as únicas pendências são autorizações obrigatórias e ainda há caminho válido;
+4. `em_processamento` — há etapa elegível, ativa ou em backoff;
+5. sem trabalho vivo: `concluida` se todos os formatos solicitados têm resultado válido e há ao menos três itens aprovados; `parcialmente_concluida` se há conteúdo entregável mas com formato/lote perdido ou menos de três aprovados; `falhou` se nada entregável chega à curadoria.
 
 ### F. Higiene
 - Remover `src/routes/api/public/f6d-probe.ts` e `src/routes/api/public/f6d-erro.ts`.
