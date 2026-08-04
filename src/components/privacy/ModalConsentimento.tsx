@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   autorizarExecucao,
+  autorizarExecucaoPersistente,
   decidirConsentimento,
   montarFotografiaSimulada,
 } from "@/lib/consentimento.functions";
@@ -56,6 +57,13 @@ export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
     provedor: "Provedor de nuvem B",
     etapa: "Especialistas",
     finalidade: "Adequar as variações ao posicionamento da marca",
+  },
+  {
+    categoria: "resumo_voz_marca_explicita",
+    provedor: "Provedor de nuvem B (Anthropic)",
+    etapa: "Especialistas",
+    finalidade:
+      "Enviar apenas o perfil de Voz de Marca que você preencheu, sem memória local nem preferências inferidas",
   },
   {
     categoria: "texto_gerado",
@@ -113,6 +121,13 @@ export function ModalConsentimento({
 
   const persistir = useMutation({
     mutationFn: async (escopo: "conta" | "chat") => {
+      const categorias = [...new Set(disponiveis.map((p) => p.categoria))];
+      if (execucaoId) {
+        // Servidor persiste no escopo e libera só as etapas bloqueadas desta execução.
+        return autorizarExecucaoPersistente({
+          data: { execucaoId, categorias, escopo },
+        });
+      }
       for (const p of disponiveis) {
         await decidirConsentimento({
           data: {
@@ -127,10 +142,13 @@ export function ModalConsentimento({
           },
         });
       }
+      return undefined;
     },
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       await invalidar();
-      toast.success("Autorização registrada. Pode ser revogada em Privacidade.");
+      toast.success("Autorização registrada. Pode ser revogada em Privacidade.", {
+        ...(r ? { description: `${r.desbloqueadas} etapa(s) liberada(s) nesta execução.` } : {}),
+      });
       aoConceder?.();
       aoFechar();
     },

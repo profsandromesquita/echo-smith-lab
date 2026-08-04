@@ -859,6 +859,42 @@ export type Database = {
         }
         Relationships: []
       }
+      precos_modelos: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          entrada_por_milhao: number
+          id: string
+          margem: number
+          modelo: string
+          provedor: string
+          saida_por_milhao: number
+          vigente: boolean
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          entrada_por_milhao?: number
+          id?: string
+          margem?: number
+          modelo: string
+          provedor: string
+          saida_por_milhao?: number
+          vigente?: boolean
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          entrada_por_milhao?: number
+          id?: string
+          margem?: number
+          modelo?: string
+          provedor?: string
+          saida_por_milhao?: number
+          vigente?: boolean
+        }
+        Relationships: []
+      }
       preferencias_privacidade: {
         Row: {
           alerta_dados_pessoais: boolean
@@ -1172,6 +1208,10 @@ export type Database = {
         Args: { _categorias: string[]; _execucao_id: string }
         Returns: Json
       }
+      autorizar_execucao_persistente: {
+        Args: { _categorias: string[]; _escopo: string; _execucao_id: string }
+        Returns: Json
+      }
       cancelar_execucao: { Args: { _execucao_id: string }; Returns: undefined }
       cancelar_solicitacao_conta: { Args: { _id: string }; Returns: boolean }
       chat_e_meu: { Args: { _chat_id: string }; Returns: boolean }
@@ -1198,6 +1238,7 @@ export type Database = {
         Returns: string
       }
       criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
+      custo_maximo_versao: { Args: { _versao_id: string }; Returns: number }
       desbloquear_etapas: {
         Args: { _categoria: string; _execucao_id: string }
         Returns: number
@@ -1295,12 +1336,7 @@ export type Database = {
       }
       registry_validar: { Args: { _versao_id: string }; Returns: Json }
       reservar_custo: {
-        Args: {
-          _chave: string
-          _custo: number
-          _etapa_id: string
-          _execucao_id: string
-        }
+        Args: { _chave: string; _etapa_id: string; _execucao_id: string }
         Returns: boolean
       }
       reservar_etapa: {
@@ -1326,6 +1362,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      teto_execucao: { Args: { _execucao_id: string }; Returns: number }
     }
     Enums: {
       app_role: "usuario" | "admin_tecnico"

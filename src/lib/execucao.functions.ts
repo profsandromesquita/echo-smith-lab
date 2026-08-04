@@ -372,11 +372,14 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        const vozAutorizada = await categoriaAutorizada(
-          context.supabase,
-          fotografiaId,
-          "resumo_voz_marca",
-        );
+        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
+        const vozAutorizada =
+          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
+          (await categoriaAutorizada(
+            context.supabase,
+            fotografiaId,
+            "resumo_voz_marca_explicita",
+          ));
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
@@ -511,11 +514,14 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        const vozAutorizada = await categoriaAutorizada(
-          context.supabase,
-          fotografiaId,
-          "resumo_voz_marca",
-        );
+        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
+        const vozAutorizada =
+          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
+          (await categoriaAutorizada(
+            context.supabase,
+            fotografiaId,
+            "resumo_voz_marca_explicita",
+          ));
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
@@ -888,11 +894,14 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        const vozAutorizada = await categoriaAutorizada(
-          context.supabase,
-          fotografiaId,
-          "resumo_voz_marca",
-        );
+        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
+        const vozAutorizada =
+          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
+          (await categoriaAutorizada(
+            context.supabase,
+            fotografiaId,
+            "resumo_voz_marca_explicita",
+          ));
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
