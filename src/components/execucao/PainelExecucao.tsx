@@ -110,7 +110,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   };
 
   const criar = useMutation({
-    mutationFn: () => criarExecucao({ data: { chatId, formato: formato as never, permissoesUnicas: [] } }),
+    mutationFn: () => criarExecucao({ data: { chatId, formato: formato as never } }),
     onSuccess: invalidar,
     onError: (e: Error) => toast.error(e.message),
   });
