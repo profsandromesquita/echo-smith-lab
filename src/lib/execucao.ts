@@ -80,6 +80,9 @@ export const MENSAGEM_ERRO_ETAPA: Record<string, string> = {
   orcamento_esgotado:
     "O orçamento desta execução acabou antes de corrigir todas as variações reprovadas.",
   descartada_por_cancelamento: "Resposta descartada após o cancelamento.",
+  cancelada_por_execucao: "Etapa cancelada junto com a execução.",
+  dependencia_falhou: "Etapa anterior falhou, então esta não pôde ser executada.",
+  autorizacao_ausente_etapa: "Etapa bloqueada até que a autorização necessária seja concedida.",
   configuracao_indisponivel:
     "A configuração do agente não pôde ser lida. A etapa foi interrompida sem substituir por simulação.",
 };
