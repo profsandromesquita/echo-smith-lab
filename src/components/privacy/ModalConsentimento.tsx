@@ -59,6 +59,13 @@ export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
     finalidade: "Adequar as variações ao posicionamento da marca",
   },
   {
+    categoria: "resumo_voz_marca_explicita",
+    provedor: "Provedor de nuvem B (Anthropic)",
+    etapa: "Especialistas",
+    finalidade:
+      "Enviar apenas o perfil de Voz de Marca que você preencheu, sem memória local nem preferências inferidas",
+  },
+  {
     categoria: "texto_gerado",
     provedor: "Provedor de nuvem A",
     etapa: "Auditoria",
