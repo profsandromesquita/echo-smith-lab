@@ -56,20 +56,6 @@ export const criarExecucao = createServerFn({ method: "POST" })
       .object({
         chatId: uuid.nullable().default(null),
         formato,
-        permissoesUnicas: z
-          .array(
-            z
-              .object({
-                categoria,
-                provedor: z.string().trim().min(1).max(60),
-                etapa: z.string().trim().min(1).max(60),
-                finalidade: z.string().trim().min(1).max(200),
-                decisao: z.enum(["concedido", "recusado"]),
-              })
-              .strict(),
-          )
-          .max(12)
-          .default([]),
       })
       .strict()
       .parse(d),
@@ -121,7 +107,6 @@ export const criarExecucao = createServerFn({ method: "POST" })
       permissoes.push({ ...p, termos_id: t.id, termos_versao: t.versao });
     };
 
-    for (const p of data.permissoesUnicas) adicionar({ ...p, origem: "modal" });
     for (const c of vigentes) {
       adicionar({
         categoria: c.categoria,
