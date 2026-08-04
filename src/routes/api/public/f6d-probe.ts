@@ -7,6 +7,10 @@ export const Route = createFileRoute("/api/public/f6d-probe")({
       GET: async ({ request }) => {
         const alvo = new URL(request.url).searchParams.get("m") ?? "historico";
         try {
+          if (alvo === "manifest") {
+            const m = await import("tanstack-start-server-fn-manifest:v");
+            return Response.json({ ok: true, ids: Object.keys((m as { default: Record<string, unknown> }).default) });
+          }
           const mod = await import(`../../../lib/${alvo}.functions.ts`);
           return Response.json({ ok: true, chaves: Object.keys(mod) });
         } catch (e) {
