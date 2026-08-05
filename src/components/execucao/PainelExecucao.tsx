@@ -69,7 +69,7 @@ const FORMATOS: Array<{ valor: string; rotulo: string }> = [
   { valor: "pacote_completo", rotulo: "Pacote completo" },
 ];
 
-const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento"];
+const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento", "resultado_incerto"];
 
 /** Texto exibido por categoria. Provedor e finalidade reais são derivados no servidor. */
 const DETALHE_CATEGORIA: Record<string, { provedor: string; etapa: string; finalidade: string }> = {
@@ -128,7 +128,10 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   });
 
   const resolver = useMutation({
-    mutationFn: (v: { etapaId: string; retomar: boolean }) => resolverIncerto({ data: v }),
+    mutationFn: (v: {
+      etapaId: string;
+      desfecho: "falha_confirmada" | "sucesso_confirmado" | "refazer_manualmente";
+    }) => resolverIncerto({ data: v }),
     onSuccess: invalidar,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -269,22 +272,37 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
             <AlertDescription className="space-y-2">
               <p>
                 A etapa {ROTULO_PAPEL[incerta.papel as PapelAgente] ?? incerta.papel} concluiu sem
-                confirmação de persistência. Repetir pode gerar trabalho duplicado no provedor.
+                confirmação de persistência. Enquanto não for resolvida, os ramos que dependem dela
+                ficam parados e nada é entregue a partir dela. Refazer pode gerar custo duplicado no
+                provedor.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => resolver.mutate({ etapaId: incerta.id, retomar: true })}
+                  onClick={() =>
+                    resolver.mutate({ etapaId: incerta.id, desfecho: "sucesso_confirmado" })
+                  }
                 >
-                  Retomar etapa
+                  Confirmar sucesso
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    resolver.mutate({ etapaId: incerta.id, desfecho: "falha_confirmada" })
+                  }
+                >
+                  Confirmar falha
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => resolver.mutate({ etapaId: incerta.id, retomar: false })}
+                  onClick={() =>
+                    resolver.mutate({ etapaId: incerta.id, desfecho: "refazer_manualmente" })
+                  }
                 >
-                  Descartar etapa
+                  Refazer manualmente (pode custar de novo)
                 </Button>
               </div>
             </AlertDescription>

@@ -1243,6 +1243,10 @@ export type Database = {
         Args: { _categoria: string; _execucao_id: string }
         Returns: number
       }
+      etapa_depende_de_incerta: {
+        Args: { _etapa_id: string }
+        Returns: boolean
+      }
       etapa_e_minha: { Args: { _etapa_id: string }; Returns: boolean }
       execucao_e_minha: { Args: { _execucao_id: string }; Returns: boolean }
       falhar_etapa: {
@@ -1365,6 +1369,10 @@ export type Database = {
       resolver_resultado_incerto: {
         Args: { _etapa_id: string; _retomar: boolean }
         Returns: undefined
+      }
+      resolver_resultado_incerto_v2: {
+        Args: { _desfecho: string; _etapa_id: string }
+        Returns: string
       }
       revogar_consentimento: {
         Args: { _id: string; _origem: string }

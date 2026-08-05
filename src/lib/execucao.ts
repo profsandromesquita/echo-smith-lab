@@ -21,6 +21,7 @@ export type EstadoExecucao =
   | "aguardando_consentimento"
   | "pronta"
   | "em_processamento"
+  | "resultado_incerto"
   | "parcialmente_concluida"
   | "concluida"
   | "falhou"
@@ -32,6 +33,7 @@ export const ROTULO_ESTADO_EXECUCAO: Record<EstadoExecucao, string> = {
   aguardando_consentimento: "Aguardando autorização",
   pronta: "Pronta",
   em_processamento: "Em processamento",
+  resultado_incerto: "Resultado incerto",
   parcialmente_concluida: "Entrega parcial",
   concluida: "Concluída",
   falhou: "Falhou",

@@ -1100,14 +1100,22 @@ export const cancelarExecucao = createServerFn({ method: "POST" })
 
 export const resolverIncerto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ etapaId: uuid, retomar: z.boolean() }).strict().parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        etapaId: uuid,
+        desfecho: z.enum(["falha_confirmada", "sucesso_confirmado", "refazer_manualmente"]),
+      })
+      .strict()
+      .parse(d),
+  )
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase.rpc("resolver_resultado_incerto", {
+    const { data: estado, error } = await context.supabase.rpc("resolver_resultado_incerto_v2", {
       _etapa_id: data.etapaId,
-      _retomar: data.retomar,
+      _desfecho: data.desfecho,
     });
     if (error) erro(error.message);
-    return { ok: true };
+    return { ok: true, estado };
   });
 
 export const desbloquearEtapas = createServerFn({ method: "POST" })
