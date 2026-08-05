@@ -1,0 +1,2 @@
+alter table public.execucoes drop constraint execucoes_estado_check;
+alter table public.execucoes add constraint execucoes_estado_check check (estado = any (array['criada','aguardando_consentimento','pronta','em_processamento','resultado_incerto','parcialmente_concluida','concluida','falhou','cancelamento_solicitado','cancelada']));
