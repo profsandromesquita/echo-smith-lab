@@ -26,15 +26,27 @@ A etapa incerta continua **não terminal** na barreira: os dependentes não pass
 `reservar_etapa` passa a aceitar também o estado `resultado_incerto` (hoje só `pronta`/`em_processamento`), sem transicionar a execução. Como o filtro de dependência exige dependências em estado terminal, nenhum dependente da etapa incerta é reservado; apenas ramos paralelos já elegíveis continuam. Ramos já concluídos permanecem intactos.
 
 ### D. Reserva de custo
-`reservar_custo_v2` passa a recusar explicitamente quando a etapa alvo está em `resultado_incerto`. A reserva já existente da etapa incerta é **mantida** (retida até reconciliação segura por `reconciliar_custo`), nunca liberada nem duplicada — a idempotência por chave `etapa:<id>:<tentativa>` já garante ausência de duplicata.
+`reservar_custo_v2` passa a aceitar o estado de execução `resultado_incerto`, mas só concede reserva quando **todas** as condições valem:
+- a etapa alvo não está em `resultado_incerto`;
+- a etapa alvo está `em_execucao` com lease válido (`lease_ate >= now()`);
+- a etapa pertence à execução e a execução pertence ao usuário autenticado (`execucao_e_minha`);
+- a etapa não depende, direta nem indiretamente, de nenhuma etapa em `resultado_incerto` (fecho transitivo sobre `depende_de`, avaliado no servidor);
+- a tentativa informada é a tentativa corrente da etapa;
+- a chave de idempotência é derivada e validada no servidor (o cliente nunca fornece chave);
+- há orçamento disponível dentro do teto da execução.
+
+A etapa incerta nunca recebe nova reserva. A reserva original dela é **mantida** (retida até reconciliação explícita por `reconciliar_custo`), nunca liberada nem duplicada — a idempotência por chave canônica já garante ausência de duplicata.
 
 ### E. Resolução explícita (sem retry cego)
-`resolver_resultado_incerto` ganha um desfecho explícito de três valores, mantendo compatibilidade com a assinatura atual:
-- **falha**: etapa vai para `falhou` com `ultimo_codigo_erro = 'unknown_outcome'`; a reconciliação propaga `dependencia_falhou` aos dependentes e recalcula o estado final;
-- **sucesso confirmado**: etapa vai para `concluida` **sem nova chamada ao provedor**, aproveitando os resultados já persistidos da tentativa; se não houver resultado persistido para a etapa, a resolução é recusada (evita "concluir" vazio);
-- **retomar**: comportamento atual (`pendente`), usado só quando o operador decide explicitamente refazer; nunca automático.
+Nova RPC com contrato fechado, sem booleano ambíguo: `resolver_resultado_incerto_v2(_etapa_id uuid, _desfecho text)`, com `_desfecho` restrito a `falha_confirmada`, `sucesso_confirmado`, `refazer_manualmente` (qualquer outro valor é rejeitado). `security definer`, `search_path` fixo, validação de propriedade e mesma ordem determinística de locks.
 
-Em todos os casos, ao final: `reconciliar_grafo_execucao` roda, o estado é recalculado e só etapas elegíveis são retomadas. Nenhum caminho reexecuta a chamada original sozinho.
+- **falha_confirmada**: etapa vai para `falhou` com `ultimo_codigo_erro = 'unknown_outcome'`; evento de resolução registrado em `execucao_eventos`; a reconciliação propaga `dependencia_falhou` aos dependentes impossíveis e recalcula o estado da execução.
+- **sucesso_confirmado**: **nunca chama o provedor**. Só é aceito quando existem resultados persistidos completos e válidos da mesma execução, etapa e tentativa: conferência de schema/tipo do payload, quantidade esperada para o papel, presença e unicidade dos IDs de item/lote, ausência de duplicata e ausência de marca de descarte. Resultado parcial ou inconsistente é recusado com erro seguro e a etapa continua `resultado_incerto`. Aprovado, a etapa vai para `concluida` e o grafo é reconciliado.
+- **refazer_manualmente**: nunca automático. Registra a decisão manual e o risco de custo duplicado em `execucao_eventos`, incrementa a tentativa da etapa, o que gera nova chave canônica de idempotência na próxima reserva, e recoloca **apenas** a etapa afetada em condição elegível (`pendente`). A tentativa anterior em `execucao_tentativas` e sua reserva técnica são preservadas.
+
+Em todos os desfechos, `reconciliar_grafo_execucao` roda ao final, o estado é recalculado e só etapas elegíveis seguem. Nenhum caminho reexecuta a chamada original sozinho.
+
+A função antiga `resolver_resultado_incerto(_etapa_id, _retomar)` vira wrapper temporário documentado, com mapeamento explícito `_retomar = true → refazer_manualmente` e `_retomar = false → falha_confirmada`, e tem o `execute` revogado de `authenticated` (permanece apenas para chamadas internas). O frontend passa a chamar só a v2. Em `PainelExecucao.tsx`, o bloco de resultado incerto ganha as três ações rotuladas ("Confirmar sucesso", "Confirmar falha", "Refazer manualmente"), com aviso de custo duplicado na terceira; sem redesenho.
 
 ### F. Cancelamento durante `resultado_incerto`
 `cancelar_execucao` já conta apenas etapas `em_execucao` como ativas, então com etapa incerta vai direto para `cancelada` (transição nova de A). A etapa incerta é preservada como está no histórico técnico, custo posterior segue reconciliável e nenhum resultado posterior é promovido.
@@ -42,12 +54,18 @@ Em todos os casos, ao final: `reconciliar_grafo_execucao` roda, o estado é reca
 ## Validação (determinística, sem provedor pago)
 
 Reexecução apenas do 5.7, pelo harness autenticado com JWT de usuário comum:
-1. Cenário controlado com uma etapa em `resultado_incerto` → conferir etapa = `resultado_incerto`, execução = `resultado_incerto`, `reservar_etapa` não devolve trabalho dependente, nenhuma nova reserva correspondente criada, nenhuma duplicata em `execucao_reservas_custo` nem `execucao_resultados`.
-2. Resolver como falha → propagação `dependencia_falhou` e estado final correto.
-3. Resolver como sucesso confirmado → retomada a partir do grafo persistido, nenhuma chamada original repetida, estado final recalculado.
-4. Cancelar com etapa incerta → execução `cancelada`, etapa preservada, sem promoção posterior.
+1. criação da incerteza → etapa = `resultado_incerto`, execução = `resultado_incerto`;
+2. ramo independente continua → `reservar_etapa` entrega a etapa independente e `reservar_custo_v2` concede a reserva dela;
+3. dependente permanece bloqueado → não é entregue por `reservar_etapa` e não recebe reserva;
+4. etapa incerta não consegue reservar de novo; reserva original permanece retida;
+5. resolução como `falha_confirmada` → propagação `dependencia_falhou` e estado final correto;
+6. resolução como `sucesso_confirmado` com resultado completo → etapa `concluida`, sem repetir chamada, estado recalculado;
+7. rejeição de `sucesso_confirmado` sem resultado completo → recusa e etapa mantida incerta;
+8. `refazer_manualmente` → tentativa incrementada, nova chave canônica, tentativa e reserva anteriores preservadas, sem repetição automática;
+9. cancelamento durante incerteza → execução `cancelada`, etapa no histórico técnico, sem promoção posterior;
+10. ausência de duplicatas em `execucao_resultados` e `execucao_reservas_custo`.
 
-Evidência: estado anterior/posterior, etapas, eventos, reservas e resultados por cenário, mais typecheck limpo.
+Evidência por cenário: estado anterior e posterior da execução e das etapas, eventos, tentativas, chaves de idempotência, reservas e resultados; mais typecheck limpo.
 
 ## Detalhes técnicos
-Uma única migração altera `aplicar_transicao_execucao`, `reconciliar_grafo_execucao`, `reservar_etapa`, `reservar_custo_v2` e `resolver_resultado_incerto`. Sem novas tabelas, sem mudança de RLS ou grants. No frontend, apenas `EstadoExecucao`/`ROTULO_ESTADO_EXECUCAO` em `src/lib/execucao.ts` ganham `resultado_incerto` ("Resultado incerto"); sem redesenho.
+Uma única migração altera `aplicar_transicao_execucao`, `reconciliar_grafo_execucao`, `reservar_etapa`, `reservar_custo_v2` e `resolver_resultado_incerto` (wrapper), e cria `resolver_resultado_incerto_v2` mais uma função auxiliar de fecho transitivo de dependências. Sem novas tabelas e sem mudança de RLS; a única mudança de grant é o `revoke execute` da função antiga para `authenticated` e o `grant execute` da v2. No frontend: `EstadoExecucao`/`ROTULO_ESTADO_EXECUCAO` em `src/lib/execucao.ts` ganham `resultado_incerto`, `resolverIncerto` em `src/lib/execucao.functions.ts` passa a receber o desfecho fechado e `PainelExecucao.tsx` expõe as três ações.
