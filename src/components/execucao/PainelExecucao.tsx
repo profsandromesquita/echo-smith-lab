@@ -69,7 +69,7 @@ const FORMATOS: Array<{ valor: string; rotulo: string }> = [
   { valor: "pacote_completo", rotulo: "Pacote completo" },
 ];
 
-const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento"];
+const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento", "resultado_incerto"];
 
 /** Texto exibido por categoria. Provedor e finalidade reais são derivados no servidor. */
 const DETALHE_CATEGORIA: Record<string, { provedor: string; etapa: string; finalidade: string }> = {
