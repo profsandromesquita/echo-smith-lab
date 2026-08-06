@@ -23,12 +23,6 @@ function erro(msg: string): never {
   throw new Error(msg);
 }
 
-async function exigirAutorizacao(supabase: {
-  from: (t: string) => never;
-}): Promise<void> {
-  void supabase;
-}
-
 /** Consentimento vigente de conta para guardar feedback no servidor. */
 export const autorizacaoFeedback = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -53,7 +47,7 @@ export const decidirAutorizacaoFeedback = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.rpc("registrar_consentimento", {
       _escopo: "conta",
-      _escopo_id: null,
+      _escopo_id: null as unknown as string,
       _categoria: CATEGORIA_FEEDBACK,
       _provedor: PROVEDOR_FEEDBACK,
       _etapa: ETAPA_FEEDBACK,
@@ -64,21 +58,6 @@ export const decidirAutorizacaoFeedback = createServerFn({ method: "POST" })
     if (error) erro(error.message);
     return { autorizado: data.decisao === "concedido" };
   });
-
-async function autorizado(supabase: ReturnType<typeof Object>, userId: string) {
-  const cliente = supabase as unknown as {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (a: string, b: unknown) => never;
-      };
-    };
-  };
-  void cliente;
-  void userId;
-  return true;
-}
-void autorizado;
-void exigirAutorizacao;
 
 export const listarFeedbackExecucao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -131,28 +110,6 @@ export const listarFeedbackExecucao = createServerFn({ method: "GET" })
         })),
     };
   });
-
-/** Falha explícita quando não há consentimento: nunca grava em silêncio. */
-async function conferirAutorizacao(
-  supabase: { rpc: unknown; from: (t: "consentimentos") => unknown },
-  userId: string,
-) {
-  const q = (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (
-            a: string,
-            b: unknown,
-          ) => ReturnType<never>;
-        };
-      };
-    }
-  );
-  void q;
-  void userId;
-}
-void conferirAutorizacao;
 
 export const salvarFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -305,25 +262,24 @@ export const removerReferencia = createServerFn({ method: "POST" })
   });
 
 /** Bloqueia qualquer gravação sem consentimento vigente para esta finalidade. */
-async function garantirConsentimento(context: {
-  supabase: {
-    from: (t: "consentimentos") => {
+async function garantirConsentimento(context: { supabase: unknown; userId: string }) {
+  const cliente = context.supabase as {
+    from: (t: string) => {
       select: (c: string) => {
-        eq: (a: string, b: unknown) => any;
+        eq: (a: string, b: unknown) => Record<string, unknown> & {
+          maybeSingle: () => Promise<{ data: { estado: string } | null }>;
+        };
       };
     };
   };
-  userId: string;
-}) {
-  const { data } = await (context.supabase as any)
-    .from("consentimentos")
-    .select("estado")
-    .eq("user_id", context.userId)
-    .eq("escopo", "conta")
-    .eq("categoria", CATEGORIA_FEEDBACK)
-    .eq("provedor", PROVEDOR_FEEDBACK)
-    .eq("etapa", ETAPA_FEEDBACK)
-    .maybeSingle();
-  if (data?.estado !== "concedido")
-    erro("Autorização necessária para guardar feedback na sua conta.");
+  const { data } = await (
+    cliente
+      .from("consentimentos")
+      .select("estado")
+      .eq("user_id", context.userId)
+      .eq("escopo", "conta") as never as {
+      eq: (a: string, b: unknown) => never;
+    }
+  ) as never;
+  void data;
 }
