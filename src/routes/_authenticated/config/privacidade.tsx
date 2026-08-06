@@ -24,6 +24,7 @@ import {
   ROTULO_ESCOPO,
   ROTULO_MODO,
 } from "@/lib/privacidade";
+import { rotuloProvedor } from "@/lib/privacidade";
 import { salvarPreferencias } from "@/lib/privacidade.functions";
 import { revogarConsentimento } from "@/lib/consentimento.functions";
 import { exportarDados, excluirConta } from "@/lib/conta-dados.functions";
@@ -180,7 +181,7 @@ function Pagina() {
                 >
                   <span className="font-medium">{ROTULO_CATEGORIA[c.categoria] ?? c.categoria}</span>
                   <Badge variant="outline" className="border-cloud/50 font-normal text-cloud">
-                    {c.provedor}
+                    {rotuloProvedor(c.provedor)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {c.etapa} · {ROTULO_ESCOPO[c.escopo] ?? c.escopo}

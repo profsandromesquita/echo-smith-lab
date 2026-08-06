@@ -19,6 +19,7 @@ import {
   lerConfiguracaoEspecialista,
   resultadosDoEspecialista,
   resultadosDoCta,
+  vozDeMarcaAutorizada,
 } from "@/lib/agentes/especialista-etapa.server";
 import {
   executarEtapaAuditor,
@@ -32,15 +33,6 @@ import { reconciliarOrcamento, reservarOrcamentoEtapa } from "@/lib/agentes/orca
 
 const uuid = z.string().uuid();
 const formato = z.enum(["hook", "headline_video", "headline_imagem", "cta", "pacote_completo"]);
-const categoria = z.enum([
-  "briefing",
-  "resumo_voz_marca",
-  "texto_gerado",
-  "metadados",
-  "variacoes_para_auditoria",
-  "feedback_para_correcao",
-]);
-
 function erro(mensagem: string): never {
   throw new Error(mensagem);
 }
@@ -236,7 +228,11 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       );
 
       if (configuracao && configuracao.provedor === "openai") {
-        const autorizado = await briefingAutorizado(context.supabase, execucao?.fotografia_id ?? null);
+        const autorizado = await briefingAutorizado(
+          context.supabase,
+          execucao?.fotografia_id ?? null,
+          configuracao.provedor,
+        );
         if (!autorizado) {
           await context.supabase.rpc("falhar_etapa", {
             _etapa_id: etapa.etapa_id,
@@ -355,7 +351,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
       if (configuracao && configuracao.provedor === "anthropic") {
         const fotografiaId = execucao?.fotografia_id ?? null;
-        const autorizado = await categoriaAutorizada(context.supabase, fotografiaId, "briefing");
+        const autorizado = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "briefing",
+          configuracao.provedor,
+        );
         if (!autorizado) {
           await context.supabase.rpc("falhar_etapa", {
             _etapa_id: etapa.etapa_id,
@@ -372,14 +373,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
-        const vozAutorizada =
-          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
-          (await categoriaAutorizada(
-            context.supabase,
-            fotografiaId,
-            "resumo_voz_marca_explicita",
-          ));
+        // Voz de Marca autorizada especificamente para o provedor desta etapa.
+        const vozAutorizada = await vozDeMarcaAutorizada(
+          context.supabase,
+          fotografiaId,
+          configuracao.provedor,
+        );
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
@@ -497,7 +496,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
 
       if (configuracao && configuracao.provedor === "anthropic") {
         const fotografiaId = execucao?.fotografia_id ?? null;
-        const autorizado = await categoriaAutorizada(context.supabase, fotografiaId, "briefing");
+        const autorizado = await categoriaAutorizada(
+          context.supabase,
+          fotografiaId,
+          "briefing",
+          configuracao.provedor,
+        );
         if (!autorizado) {
           await context.supabase.rpc("falhar_etapa", {
             _etapa_id: etapa.etapa_id,
@@ -514,14 +518,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
-        const vozAutorizada =
-          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
-          (await categoriaAutorizada(
-            context.supabase,
-            fotografiaId,
-            "resumo_voz_marca_explicita",
-          ));
+        // Voz de Marca autorizada especificamente para o provedor desta etapa.
+        const vozAutorizada = await vozDeMarcaAutorizada(
+          context.supabase,
+          fotografiaId,
+          configuracao.provedor,
+        );
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
@@ -636,7 +638,11 @@ export const avancarExecucao = createServerFn({ method: "POST" })
       );
 
       if (configuracao && configuracao.provedor === "openai") {
-        const autorizado = await briefingAutorizado(context.supabase, execucao?.fotografia_id ?? null);
+        const autorizado = await briefingAutorizado(
+          context.supabase,
+          execucao?.fotografia_id ?? null,
+          configuracao.provedor,
+        );
         if (!autorizado) {
           await context.supabase.rpc("falhar_etapa", {
             _etapa_id: etapa.etapa_id,
@@ -754,10 +760,13 @@ export const avancarExecucao = createServerFn({ method: "POST" })
     // ---- Correção única no especialista de origem (F6D). ----
     if (etapa.papel === "correcao") {
       const fotografiaId = execucao?.fotografia_id ?? null;
+      // a correção herda a versão do especialista de origem: provedor vem dela
+      const configCorrecao = await lerConfiguracaoEspecialista(context.supabase, etapa.etapa_id);
       const autorizado = await categoriaAutorizada(
         context.supabase,
         fotografiaId,
         "feedback_para_correcao",
+        configCorrecao?.provedor ?? "desconhecido",
       );
       if (!autorizado) {
         await context.supabase.rpc("falhar_etapa", {
@@ -877,6 +886,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           context.supabase,
           fotografiaId,
           "variacoes_para_auditoria",
+          configuracao.provedor,
         );
         if (!autorizado) {
           await context.supabase.rpc("falhar_etapa", {
@@ -894,14 +904,12 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           };
         }
 
-        // Voz de Marca vale tanto pelo consentimento genérico quanto pelo perfil explícito.
-        const vozAutorizada =
-          (await categoriaAutorizada(context.supabase, fotografiaId, "resumo_voz_marca")) ||
-          (await categoriaAutorizada(
-            context.supabase,
-            fotografiaId,
-            "resumo_voz_marca_explicita",
-          ));
+        // Voz de Marca autorizada especificamente para o provedor desta etapa.
+        const vozAutorizada = await vozDeMarcaAutorizada(
+          context.supabase,
+          fotografiaId,
+          configuracao.provedor,
+        );
 
                 // reserva atômica de orçamento antes de qualquer chamada externa
         const reserva = await reservarOrcamentoEtapa(context.supabase, {
@@ -1117,15 +1125,5 @@ export const resolverIncerto = createServerFn({ method: "POST" })
     if (error) erro(error.message);
     return { ok: true, estado };
   });
-
-export const desbloquearEtapas = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: uuid, categoria }).strict().parse(d))
-  .handler(async ({ context, data }) => {
-    const { data: n, error } = await context.supabase.rpc("desbloquear_etapas", {
-      _execucao_id: data.id,
-      _categoria: data.categoria,
-    });
-    if (error) erro(error.message);
-    return { desbloqueadas: Number(n ?? 0) };
-  });
+// `desbloquearEtapas` foi removida: desbloqueava etapas por categoria sem nenhum
+// registro de consentimento. Liberação só ocorre via autorização real da execução.

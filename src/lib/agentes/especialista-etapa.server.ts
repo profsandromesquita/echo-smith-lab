@@ -63,21 +63,41 @@ export async function lerConfiguracaoEspecialista(
   };
 }
 
-/** Revalidação server-side de uma categoria na fotografia de consentimento da execução. */
+/**
+ * Revalidação server-side de uma categoria na fotografia de consentimento.
+ * O provedor é a identidade canônica derivada da versão fixada do Registry
+ * (`openai` | `anthropic` | `simulado`), nunca um rótulo de exibição vindo do
+ * cliente: autorizar um provedor jamais libera o outro.
+ */
 export async function categoriaAutorizada(
   supabase: Cliente,
   fotografiaId: string | null,
   categoria: string,
+  provedor: string,
 ): Promise<boolean> {
   if (!fotografiaId) return false;
-  const { data } = await supabase
+  let consulta = supabase
     .from("fotografias_consentimento")
     .select("id")
     .eq("fotografia_id", fotografiaId)
     .eq("categoria", categoria)
-    .eq("decisao", "concedido")
-    .limit(1);
+    .eq("decisao", "concedido");
+  // 'simulado' não sai do ambiente: aceita qualquer autorização da categoria.
+  if (provedor !== "simulado") consulta = consulta.eq("provedor", provedor);
+  const { data } = await consulta.limit(1);
   return (data ?? []).length > 0;
+}
+
+/** Voz de Marca: consentimento genérico ou perfil explícito, sempre por provedor. */
+export async function vozDeMarcaAutorizada(
+  supabase: Cliente,
+  fotografiaId: string | null,
+  provedor: string,
+): Promise<boolean> {
+  return (
+    (await categoriaAutorizada(supabase, fotografiaId, "resumo_voz_marca", provedor)) ||
+    (await categoriaAutorizada(supabase, fotografiaId, "resumo_voz_marca_explicita", provedor))
+  );
 }
 
 /** Monta só o que foi autorizado: briefing, diretriz da etapa anterior e voz de marca. */

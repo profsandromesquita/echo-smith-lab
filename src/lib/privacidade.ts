@@ -63,5 +63,18 @@ export const ROTULO_ESCOPO: Record<string, string> = {
   execucao: "apenas esta execução",
 };
 
+/**
+ * Rótulo de exibição do provedor. A identidade canônica gravada no banco é
+ * `openai` | `anthropic` | `simulado`; a tela nunca decide autorização por texto.
+ */
+export const ROTULO_PROVEDOR: Record<string, string> = {
+  openai: "Provedor de nuvem A (OpenAI)",
+  anthropic: "Provedor de nuvem B (Anthropic)",
+  simulado: "Simulado (sem envio)",
+  desconhecido: "Registro antigo, sem provedor identificado",
+};
+
+export const rotuloProvedor = (p: string) => ROTULO_PROVEDOR[p] ?? p;
+
 export const rotuloOrigemModo = (origem: "chat" | "padrao") =>
   origem === "chat" ? "definido neste chat" : "padrão da conta";

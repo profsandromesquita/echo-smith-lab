@@ -1205,11 +1205,20 @@ export type Database = {
         Returns: undefined
       }
       autorizar_execucao: {
-        Args: { _categorias: string[]; _execucao_id: string }
+        Args: {
+          _categorias: string[]
+          _execucao_id: string
+          _provedores?: string[]
+        }
         Returns: Json
       }
       autorizar_execucao_persistente: {
-        Args: { _categorias: string[]; _escopo: string; _execucao_id: string }
+        Args: {
+          _categorias: string[]
+          _escopo: string
+          _execucao_id: string
+          _provedores?: string[]
+        }
         Returns: Json
       }
       cancelar_execucao: { Args: { _execucao_id: string }; Returns: undefined }
@@ -1239,9 +1248,9 @@ export type Database = {
       }
       criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
       custo_maximo_versao: { Args: { _versao_id: string }; Returns: number }
-      desbloquear_etapas: {
-        Args: { _categoria: string; _execucao_id: string }
-        Returns: number
+      etapa_consentida: {
+        Args: { _categoria: string; _fotografia_id: string; _provedor: string }
+        Returns: boolean
       }
       etapa_depende_de_incerta: {
         Args: { _etapa_id: string }
@@ -1275,6 +1284,7 @@ export type Database = {
         Args: { _execucao_id: string }
         Returns: Json
       }
+      provedor_canonico: { Args: { _rotulo: string }; Returns: string }
       reconciliar_consentimento_execucao: {
         Args: { _execucao_id: string }
         Returns: number

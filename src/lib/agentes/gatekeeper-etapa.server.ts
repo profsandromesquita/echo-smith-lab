@@ -42,19 +42,25 @@ export async function lerConfiguracaoEtapa(
   };
 }
 
-/** Revalidação server-side da fotografia de consentimento da execução. */
+/**
+ * Revalidação server-side da fotografia de consentimento da execução.
+ * O provedor canônico vem da versão fixada do Registry; autorização concedida
+ * a um provedor nunca vale para outro.
+ */
 export async function briefingAutorizado(
   supabase: Cliente,
   fotografiaId: string | null,
+  provedor: string,
 ): Promise<boolean> {
   if (!fotografiaId) return false;
-  const { data } = await supabase
+  let consulta = supabase
     .from("fotografias_consentimento")
     .select("id")
     .eq("fotografia_id", fotografiaId)
     .eq("categoria", "briefing")
-    .eq("decisao", "concedido")
-    .limit(1);
+    .eq("decisao", "concedido");
+  if (provedor !== "simulado") consulta = consulta.eq("provedor", provedor);
+  const { data } = await consulta.limit(1);
   return (data ?? []).length > 0;
 }
 
