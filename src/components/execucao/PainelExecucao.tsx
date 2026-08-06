@@ -499,7 +499,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           </CollapsibleContent>
         </Collapsible>
 
-        <CuradoriaExecucao resultados={resultados} />
+        <CuradoriaExecucao resultados={resultados} chatId={chatId} execucaoId={execucaoId} />
       </CardContent>
     </Card>
   );
