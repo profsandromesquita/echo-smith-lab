@@ -1184,5 +1184,49 @@ export const resolverIncerto = createServerFn({ method: "POST" })
     if (error) erro(error.message);
     return { ok: true, estado };
   });
+
+/**
+ * Complemento de briefing pedido pelo Gatekeeper. Grava a resposta como mensagem
+ * do usuário no chat e devolve a etapa de triagem para reavaliação — tudo validado
+ * no servidor: só o dono da execução, e só quando ela está aguardando complemento.
+ */
+export const responderComplemento = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ execucaoId: uuid, texto: z.string().trim().min(1).max(8000) })
+      .strict()
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: execucao } = await context.supabase
+      .from("execucoes")
+      .select("id, chat_id, estado")
+      .eq("id", data.execucaoId)
+      .maybeSingle();
+    if (!execucao?.chat_id) erro("Execução indisponível.");
+    if (execucao.estado !== "aguardando_complemento") {
+      erro("Esta execução não está aguardando complemento.");
+    }
+
+    const { data: mensagem, error: eMensagem } = await context.supabase
+      .from("mensagens")
+      .insert({
+        chat_id: execucao.chat_id,
+        user_id: context.userId,
+        autor: "usuario",
+        texto: data.texto,
+      })
+      .select("id")
+      .single();
+    if (eMensagem || !mensagem) erro("Não foi possível registrar o complemento.");
+
+    const { error } = await context.supabase.rpc("responder_complemento_briefing", {
+      _execucao_id: data.execucaoId,
+      _mensagem_id: mensagem.id,
+    });
+    if (error) erro(error.message);
+    return { ok: true, mensagemId: mensagem.id };
+  });
 // `desbloquearEtapas` foi removida: desbloqueava etapas por categoria sem nenhum
 // registro de consentimento. Liberação só ocorre via autorização real da execução.
