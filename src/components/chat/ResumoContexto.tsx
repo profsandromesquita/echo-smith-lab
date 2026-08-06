@@ -52,9 +52,7 @@ export function ResumoContexto({ chatId = null }: { chatId?: string | null }) {
           </p>
         </div>
         <div>
-          <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-            IA local
-          </p>
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">IA local</p>
           <SeloIaLocal />
         </div>
       </PopoverContent>

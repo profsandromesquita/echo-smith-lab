@@ -32,32 +32,32 @@ export function SeletorPerfil({
 
   return (
     <div className="space-y-1.5">
-    <Select
-      value={valor ?? SEM_PERFIL}
-      onValueChange={(v) => aoMudar(v === SEM_PERFIL ? null : v)}
-      disabled={desabilitado || isLoading}
-    >
-      <SelectTrigger className="w-full" aria-label={ariaLabel}>
-        <SelectValue placeholder={rotuloVazio} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={SEM_PERFIL}>{rotuloVazio}</SelectItem>
-        {(perfis ?? []).map((p) => (
-          <SelectItem key={p.id} value={p.id}>
-            {p.nome}
-            {p.padrao ? " · padrão" : ""}
-          </SelectItem>
-        ))}
-        <Separator className="my-1" />
-        <Link
-          to="/config/voz-de-marca"
-          className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary outline-none hover:bg-accent"
-        >
-          <Plus className="size-4" aria-hidden />
-          {vazio ? "Criar voz de marca" : "Criar nova voz de marca"}
-        </Link>
-      </SelectContent>
-    </Select>
+      <Select
+        value={valor ?? SEM_PERFIL}
+        onValueChange={(v) => aoMudar(v === SEM_PERFIL ? null : v)}
+        disabled={desabilitado || isLoading}
+      >
+        <SelectTrigger className="w-full" aria-label={ariaLabel}>
+          <SelectValue placeholder={rotuloVazio} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SEM_PERFIL}>{rotuloVazio}</SelectItem>
+          {(perfis ?? []).map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.nome}
+              {p.padrao ? " · padrão" : ""}
+            </SelectItem>
+          ))}
+          <Separator className="my-1" />
+          <Link
+            to="/config/voz-de-marca"
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary outline-none hover:bg-accent"
+          >
+            <Plus className="size-4" aria-hidden />
+            {vazio ? "Criar voz de marca" : "Criar nova voz de marca"}
+          </Link>
+        </SelectContent>
+      </Select>
       {vazio && !isLoading && (
         <p className="text-xs text-muted-foreground">
           Você ainda não tem nenhuma voz de marca.{" "}
