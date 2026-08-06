@@ -1246,6 +1246,19 @@ export type Database = {
         }
         Returns: string
       }
+      criar_execucao_para_mensagem: {
+        Args: {
+          _chat_id: string
+          _formato: string
+          _mensagem_id: string
+          _modo_privacidade: string
+          _permissoes: Json
+          _reexecutar?: boolean
+          _snapshot_marca: Json
+          _snapshot_privacidade: Json
+        }
+        Returns: Json
+      }
       criar_solicitacao_conta: { Args: { _tipo: string }; Returns: string }
       custo_maximo_versao: { Args: { _versao_id: string }; Returns: number }
       etapa_consentida: {
