@@ -352,6 +352,15 @@ export const avancarExecucao = createServerFn({ method: "POST" })
               _incerto: true,
               _sem_retry: false,
             });
+          } else if (!resultado.saida.suficiente) {
+            // Briefing insuficiente: o pipeline para de verdade aqui. Nenhuma etapa
+            // seguinte é reservada e nenhum provedor é chamado até o usuário responder.
+            await context.supabase.rpc("aplicar_transicao_execucao", {
+              _execucao_id: data.id,
+              _para: "aguardando_complemento",
+              _motivo: "briefing insuficiente",
+            });
+            desfechoReal = "aguardando_complemento";
           }
         } else {
           statusEvento = "erro";
