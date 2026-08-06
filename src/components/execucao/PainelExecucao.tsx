@@ -10,13 +10,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DetalhesTecnicos } from "@/components/execucao/DetalhesTecnicos";
 import { CuradoriaExecucao } from "@/components/execucao/CuradoriaExecucao";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
@@ -34,7 +27,7 @@ import {
 import {
   avancarExecucao,
   cancelarExecucao,
-  criarExecucao,
+  criarExecucaoParaMensagem,
   resolverIncerto,
 } from "@/lib/execucao.functions";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
@@ -60,14 +53,6 @@ const CORES: Record<EstadoEtapa, string> = {
   cancelada: "border-muted-foreground text-muted-foreground",
   resultado_incerto: "border-uncertain text-uncertain",
 };
-
-const FORMATOS: Array<{ valor: string; rotulo: string }> = [
-  ...(Object.keys(ROTULO_FORMATO) as FormatoSaida[]).map((f) => ({
-    valor: f,
-    rotulo: ROTULO_FORMATO[f],
-  })),
-  { valor: "pacote_completo", rotulo: "Pacote completo" },
-];
 
 const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento", "resultado_incerto"];
 
@@ -133,8 +118,8 @@ const DETALHE_CATEGORIA: Record<
 
 export function PainelExecucao({ chatId }: { chatId: string }) {
   const cliente = useQueryClient();
-  const [formato, setFormato] = useState<string>("hook");
   const [autorizando, setAutorizando] = useState(false);
+  const [confirmandoReexecucao, setConfirmandoReexecucao] = useState(false);
   const avancando = useRef(false);
 
   const ativa = useQuery(opcoesExecucaoAtiva(chatId));
@@ -145,9 +130,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
     await cliente.invalidateQueries({ queryKey: chavesExecucao.raiz });
   };
 
-  const criar = useMutation({
-    mutationFn: () => criarExecucao({ data: { chatId, formato: formato as never } }),
-    onSuccess: invalidar,
+  const reexecutar = useMutation({
+    mutationFn: (v: { mensagemId: string; formato: string }) =>
+      criarExecucaoParaMensagem({
+        data: { chatId, mensagemId: v.mensagemId, formato: v.formato as never, reexecutar: true },
+      }),
+    onSuccess: async () => {
+      setConfirmandoReexecucao(false);
+      await invalidar();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -176,9 +167,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   const etapas = detalhe.data?.etapas ?? [];
   const resultados = detalhe.data?.resultados ?? [];
 
-  const gatekeeper = resultados
-    .map((r) => (r.payload ?? {}) as Record<string, unknown>)
-    .find((p) => p['campo'] === "gatekeeper");
+  const cargas = resultados.map((r) => (r.payload ?? {}) as Record<string, unknown>);
+  const gatekeeper = cargas.find((p) => p['campo'] === "gatekeeper");
+  const diretriz = cargas.find((p) => p['campo'] === "diretriz_estrategica");
+
+  const snapshotChat = (detalhe.data?.execucao.snapshot_chat ?? {}) as Record<string, unknown>;
+  const mensagemDaExecucao =
+    typeof snapshotChat['mensagem_id'] === "string" ? snapshotChat['mensagem_id'] : null;
+  const formatoDaExecucao = detalhe.data?.execucao.formato_solicitado ?? "hook";
+  const etapaPsicologia = etapas.find((e) => e.papel === "analise_psicologica");
 
   // O avanço exige esta aba aberta: não há processo de fundo no servidor.
   useEffect(() => {
@@ -205,25 +202,11 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Execução do pipeline</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <Select value={formato} onValueChange={setFormato}>
-            <SelectTrigger className="w-56" aria-label="Formato da execução">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FORMATOS.map((f) => (
-                <SelectItem key={f.valor} value={f.valor}>
-                  {f.rotulo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>
-            Iniciar execução
-          </Button>
-          <p className="w-full text-xs text-muted-foreground">
-            Os agentes desta execução rodam nos provedores em nuvem fixados no Registry. Cada
-            etapa só é chamada com o consentimento que você autorizar.
+        <CardContent>
+          <p className="text-xs text-muted-foreground">
+            Nenhuma execução ainda neste chat. Escolha o formato e envie o briefing para gerar o
+            pacote: os agentes rodam nos provedores em nuvem fixados no Registry e cada etapa só é
+            chamada com o consentimento que você autorizar.
           </p>
         </CardContent>
       </Card>
