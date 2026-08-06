@@ -40,40 +40,46 @@ export function useCapturaFeedback(execucaoId: string | null, chatId: string) {
     void qc.invalidateQueries({ queryKey: chavesFeedback.raiz });
   };
 
-  const acao = <T,>(fn: (v: T) => Promise<unknown>, sucesso: string) =>
-    useMutation({
-      mutationFn: fn,
-      onSuccess: () => {
-        invalidar();
-        toast.success(sucesso);
-      },
-      onError: (e: Error) => toast.error(e.message),
-    });
+  const ok = (msg: string) => () => {
+    invalidar();
+    toast.success(msg);
+  };
+  const falha = (e: Error) => toast.error(e.message);
 
-  const salvarFeedback = acao<EntradaFeedback>(
-    (v) => adaptador.registrarFeedback(v),
-    local ? "Registrado neste dispositivo." : "Registrado na sua conta.",
-  );
-  const apagarFeedback = acao<{ itemId: string }>(
-    (v) => adaptador.removerFeedback(execucaoId as string, v.itemId),
-    "Feedback removido.",
-  );
-  const salvarEdicao = acao<EntradaEdicao>(
-    (v) => adaptador.registrarEdicao(v),
-    "Edição salva. O texto original foi preservado.",
-  );
-  const apagarEdicao = acao<{ itemId: string }>(
-    (v) => adaptador.removerEdicao(execucaoId as string, v.itemId),
-    "Edição removida.",
-  );
-  const salvarReferencia = acao<EntradaReferencia>(
-    (v) => adaptador.usarComoReferencia(v),
-    local ? "Referência guardada neste dispositivo." : "Exemplo de referência criado.",
-  );
-  const apagarReferencia = acao<{ itemId: string }>(
-    (v) => adaptador.removerReferencia(execucaoId as string, v.itemId),
-    "Referência removida.",
-  );
+  const salvarFeedback = useMutation({
+    mutationFn: (v: EntradaFeedback) => adaptador.registrarFeedback(v),
+    onSuccess: ok(local ? "Registrado neste dispositivo." : "Registrado na sua conta."),
+    onError: falha,
+  });
+  const apagarFeedback = useMutation({
+    mutationFn: (v: { itemId: string }) =>
+      adaptador.removerFeedback(execucaoId as string, v.itemId),
+    onSuccess: ok("Feedback removido."),
+    onError: falha,
+  });
+  const salvarEdicao = useMutation({
+    mutationFn: (v: EntradaEdicao) => adaptador.registrarEdicao(v),
+    onSuccess: ok("Edição salva. O texto original foi preservado."),
+    onError: falha,
+  });
+  const apagarEdicao = useMutation({
+    mutationFn: (v: { itemId: string }) => adaptador.removerEdicao(execucaoId as string, v.itemId),
+    onSuccess: ok("Edição removida."),
+    onError: falha,
+  });
+  const salvarReferencia = useMutation({
+    mutationFn: (v: EntradaReferencia) => adaptador.usarComoReferencia(v),
+    onSuccess: ok(
+      local ? "Referência guardada neste dispositivo." : "Exemplo de referência criado.",
+    ),
+    onError: falha,
+  });
+  const apagarReferencia = useMutation({
+    mutationFn: (v: { itemId: string }) =>
+      adaptador.removerReferencia(execucaoId as string, v.itemId),
+    onSuccess: ok("Referência removida."),
+    onError: falha,
+  });
 
   const autorizar = useMutation({
     mutationFn: (decisao: "concedido" | "recusado") =>
