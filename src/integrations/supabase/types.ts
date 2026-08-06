@@ -177,6 +177,83 @@ export type Database = {
           },
         ]
       }
+      edicoes_resultado: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          diff: Json
+          execucao_id: string
+          exemplo_id: string | null
+          id: string
+          item_id: string
+          perfil_marca_id: string | null
+          resultado_id: string | null
+          texto_editado: string
+          texto_original: string
+          user_id: string
+          virou_exemplo: boolean
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          diff?: Json
+          execucao_id: string
+          exemplo_id?: string | null
+          id?: string
+          item_id: string
+          perfil_marca_id?: string | null
+          resultado_id?: string | null
+          texto_editado: string
+          texto_original: string
+          user_id?: string
+          virou_exemplo?: boolean
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          diff?: Json
+          execucao_id?: string
+          exemplo_id?: string | null
+          id?: string
+          item_id?: string
+          perfil_marca_id?: string | null
+          resultado_id?: string | null
+          texto_editado?: string
+          texto_original?: string
+          user_id?: string
+          virou_exemplo?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edicoes_resultado_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edicoes_resultado_exemplo_id_fkey"
+            columns: ["exemplo_id"]
+            isOneToOne: false
+            referencedRelation: "exemplos_marca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edicoes_resultado_perfil_marca_id_fkey"
+            columns: ["perfil_marca_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edicoes_resultado_resultado_id_fkey"
+            columns: ["resultado_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_resultados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos_tecnicos: {
         Row: {
           chat_id: string | null
@@ -641,7 +718,10 @@ export type Database = {
         Row: {
           atualizado_em: string
           criado_em: string
+          execucao_id: string | null
           id: string
+          item_id: string | null
+          origem: string
           perfil_id: string
           texto: string
           titulo: string
@@ -650,7 +730,10 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           criado_em?: string
+          execucao_id?: string | null
           id?: string
+          item_id?: string | null
+          origem?: string
           perfil_id: string
           texto: string
           titulo?: string
@@ -659,7 +742,10 @@ export type Database = {
         Update: {
           atualizado_em?: string
           criado_em?: string
+          execucao_id?: string | null
           id?: string
+          item_id?: string | null
+          origem?: string
           perfil_id?: string
           texto?: string
           titulo?: string
@@ -667,10 +753,87 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "exemplos_marca_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "exemplos_marca_perfil_id_fkey"
             columns: ["perfil_id"]
             isOneToOne: false
             referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_resultado: {
+        Row: {
+          atualizado_em: string
+          comentario: string
+          criado_em: string
+          execucao_id: string
+          formato: string
+          id: string
+          item_id: string
+          motivos: string[]
+          papel: string
+          perfil_marca_id: string | null
+          resultado_id: string | null
+          sinal: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          comentario?: string
+          criado_em?: string
+          execucao_id: string
+          formato?: string
+          id?: string
+          item_id: string
+          motivos?: string[]
+          papel?: string
+          perfil_marca_id?: string | null
+          resultado_id?: string | null
+          sinal: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          comentario?: string
+          criado_em?: string
+          execucao_id?: string
+          formato?: string
+          id?: string
+          item_id?: string
+          motivos?: string[]
+          papel?: string
+          perfil_marca_id?: string | null
+          resultado_id?: string | null
+          sinal?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_resultado_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_resultado_perfil_marca_id_fkey"
+            columns: ["perfil_marca_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_marca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_resultado_resultado_id_fkey"
+            columns: ["resultado_id"]
+            isOneToOne: false
+            referencedRelation: "execucao_resultados"
             referencedColumns: ["id"]
           },
         ]
