@@ -19,6 +19,7 @@ export const opcoesExecucaoAtiva = (chatId: string) =>
 export type EstadoExecucao =
   | "criada"
   | "aguardando_consentimento"
+  | "aguardando_complemento"
   | "pronta"
   | "em_processamento"
   | "resultado_incerto"
@@ -31,6 +32,7 @@ export type EstadoExecucao =
 export const ROTULO_ESTADO_EXECUCAO: Record<EstadoExecucao, string> = {
   criada: "Criada",
   aguardando_consentimento: "Aguardando autorização",
+  aguardando_complemento: "Aguardando complemento",
   pronta: "Pronta",
   em_processamento: "Em processamento",
   resultado_incerto: "Resultado incerto",

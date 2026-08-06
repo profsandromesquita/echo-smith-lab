@@ -1288,6 +1288,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      marcar_briefing_insuficiente: {
+        Args: { _execucao_id: string }
+        Returns: string
+      }
       pasta_e_minha: { Args: { _pasta_id: string }; Returns: boolean }
       perfil_e_meu: {
         Args: { _perfil_id: string; _user_id: string }
@@ -1396,6 +1400,10 @@ export type Database = {
       resolver_resultado_incerto_v2: {
         Args: { _desfecho: string; _etapa_id: string }
         Returns: string
+      }
+      responder_complemento_briefing: {
+        Args: { _execucao_id: string; _mensagem_id: string }
+        Returns: Json
       }
       revogar_consentimento: {
         Args: { _id: string; _origem: string }

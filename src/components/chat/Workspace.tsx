@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Thread, type MensagemChat } from "@/components/chat/Thread";
 import { Composer } from "@/components/chat/Composer";
 import { AreaResultados } from "@/components/chat/AreaResultados";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useDemo, type EstadoDemo } from "@/lib/demo-state";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
+import { opcoesExecucaoAtiva, ROTULO_ESTADO_EXECUCAO, type EstadoExecucao } from "@/lib/execucao";
 
 export type FormatoExecucao = FormatoSaida | "pacote_completo";
 
@@ -56,7 +58,17 @@ export function Workspace({
   carregando?: boolean;
 }) {
   const { estado, offline } = useDemo();
-  const status = offline ? "Sem conexão" : STATUS_PRINCIPAL[estado];
+  // Estado honesto: quando existe execução real neste chat, o rótulo vem dela.
+  const ativa = useQuery({
+    ...opcoesExecucaoAtiva(chatId ?? ""),
+    enabled: Boolean(chatId),
+  });
+  const estadoReal = ativa.data?.estado as EstadoExecucao | undefined;
+  const status = offline
+    ? "Sem conexão"
+    : estadoReal
+      ? ROTULO_ESTADO_EXECUCAO[estadoReal]
+      : STATUS_PRINCIPAL[estado];
   const [formato, setFormato] = useState<FormatoExecucao>("hook");
 
   return (
