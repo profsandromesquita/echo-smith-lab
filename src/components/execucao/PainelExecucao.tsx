@@ -379,21 +379,62 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           </Alert>
         )}
 
-        {gatekeeper && (
+        {/* Diretriz sempre derivada dos resultados desta execução. Sem texto de exemplo. */}
+        {gatekeeper && !gatekeeper['suficiente'] && (
           <Alert>
             <HelpCircle aria-hidden />
-            <AlertTitle>
-              {gatekeeper['suficiente'] ? "Briefing suficiente" : "Aguardando complemento"}
-            </AlertTitle>
+            <AlertTitle>Aguardando complemento do briefing</AlertTitle>
             <AlertDescription>
-              {gatekeeper['suficiente']
-                ? String(gatekeeper['resumo'] ?? "Briefing estruturado pronto para as próximas etapas.")
-                : String(
-                    gatekeeper['pergunta_de_refinamento'] ??
-                      "Faltam informações essenciais no briefing.",
-                  )}
+              {String(
+                gatekeeper['pergunta_de_refinamento'] ??
+                  "Faltam informações essenciais no briefing.",
+              )}
             </AlertDescription>
           </Alert>
+        )}
+
+        {gatekeeper?.['suficiente'] === true && (
+          <div className="rounded-lg border-l-2 border-primary/60 bg-muted/40 px-3 py-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Diretriz estratégica
+            </p>
+            {diretriz ? (
+              <>
+                <p className="mt-0.5 text-sm">{String(diretriz['texto'] ?? "")}</p>
+                <dl className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                  {(
+                    [
+                      ["Conflito inconsciente", diretriz['conflito_inconsciente']],
+                      ["Medo central", diretriz['medo_central']],
+                      ["Desejo central", diretriz['desejo_central']],
+                      ["Objeção provável", diretriz['objecao_provavel']],
+                    ] as const
+                  )
+                    .filter(([, v]) => typeof v === "string" && v)
+                    .map(([rotulo, v]) => (
+                      <div key={rotulo}>
+                        <dt className="inline font-medium">{rotulo}: </dt>
+                        <dd className="inline">{String(v)}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </>
+            ) : etapaPsicologia?.estado === "falhou" ||
+              etapaPsicologia?.estado === "cancelada" ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A análise psicológica desta execução não concluiu. Nenhuma diretriz foi produzida.
+              </p>
+            ) : etapaPsicologia?.estado === "bloqueada" ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A análise psicológica está bloqueada até você autorizar o envio ao provedor.
+              </p>
+            ) : (
+              <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Analisando o briefing desta execução…
+              </p>
+            )}
+          </div>
         )}
 
         <ol className="space-y-1">
