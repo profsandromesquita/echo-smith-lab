@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
+type SupabaseAutenticado = SupabaseClient<Database>;
 
 /**
  * Persistência de feedback no modo Híbrido autorizado.
@@ -262,24 +266,19 @@ export const removerReferencia = createServerFn({ method: "POST" })
   });
 
 /** Bloqueia qualquer gravação sem consentimento vigente para esta finalidade. */
-async function garantirConsentimento(context: { supabase: unknown; userId: string }) {
-  const cliente = context.supabase as {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (a: string, b: unknown) => Record<string, unknown> & {
-          maybeSingle: () => Promise<{ data: { estado: string } | null }>;
-        };
-      };
-    };
-  };
-  const { data } = await (
-    cliente
-      .from("consentimentos")
-      .select("estado")
-      .eq("user_id", context.userId)
-      .eq("escopo", "conta") as never as {
-      eq: (a: string, b: unknown) => never;
-    }
-  ) as never;
-  void data;
+async function garantirConsentimento(context: {
+  supabase: SupabaseAutenticado;
+  userId: string;
+}) {
+  const { data } = await context.supabase
+    .from("consentimentos")
+    .select("estado")
+    .eq("user_id", context.userId)
+    .eq("escopo", "conta")
+    .eq("categoria", CATEGORIA_FEEDBACK)
+    .eq("provedor", PROVEDOR_FEEDBACK)
+    .eq("etapa", ETAPA_FEEDBACK)
+    .maybeSingle();
+  if (data?.estado !== "concedido")
+    erro("Autorização necessária para guardar feedback na sua conta.");
 }
