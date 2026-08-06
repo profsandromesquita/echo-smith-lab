@@ -183,7 +183,7 @@ export const obterExecucao = createServerFn({ method: "GET" })
     const { data: execucao, error } = await context.supabase
       .from("execucoes")
       .select(
-        "id, chat_id, formato_solicitado, estado, custo_estimado, criada_em, iniciada_em, finalizada_em, cancelamento_solicitado_em, fotografia_id, snapshot_registry, motivo_falha",
+        "id, chat_id, formato_solicitado, estado, custo_estimado, criada_em, iniciada_em, finalizada_em, cancelamento_solicitado_em, fotografia_id, snapshot_registry, snapshot_chat, motivo_falha",
       )
       .eq("id", data.id)
       .maybeSingle();
