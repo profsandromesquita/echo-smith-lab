@@ -38,29 +38,21 @@ function erro(mensagem: string): never {
 }
 
 /**
- * Cria execução, fotografia de consentimento, permissões, vínculo com as versões
- * publicadas do Registry e etapas roteadas — tudo na mesma transação do banco.
+ * Monta modo de privacidade e permissões vigentes do usuário para a execução.
+ * Compartilhado pelos dois caminhos de criação; nada aqui decide estado.
  */
-export const criarExecucao = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        chatId: uuid.nullable().default(null),
-        formato,
-      })
-      .strict()
-      .parse(d),
-  )
-  .handler(async ({ context, data }) => {
+async function contextoDeCriacao(
+  context: { supabase: SupabaseAutenticado; userId: string },
+  chatId: string | null,
+) {
     const [prefs, chat, termos, consentimentos] = await Promise.all([
       context.supabase
         .from("preferencias_privacidade")
         .select("modo_padrao")
         .eq("user_id", context.userId)
         .maybeSingle(),
-      data.chatId
-        ? context.supabase.from("chats").select("modo_privacidade").eq("id", data.chatId).maybeSingle()
+      chatId
+        ? context.supabase.from("chats").select("modo_privacidade").eq("id", chatId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       context.supabase.from("termos_consentimento").select("id, chave, versao").eq("vigente", true),
       context.supabase
@@ -78,7 +70,7 @@ export const criarExecucao = createServerFn({ method: "POST" })
     const porChave = new Map((termos.data ?? []).map((t) => [t.chave, t]));
 
     const vigentes = (consentimentos.data ?? []).filter(
-      (c) => c.escopo === "conta" || (c.escopo === "chat" && c.escopo_id === data.chatId),
+      (c) => c.escopo === "conta" || (c.escopo === "chat" && c.escopo_id === chatId),
     );
 
     const chaves = new Set<string>();
@@ -110,6 +102,26 @@ export const criarExecucao = createServerFn({ method: "POST" })
       });
     }
 
+  return { modo, permissoes };
+}
+
+/**
+ * Cria execução, fotografia de consentimento, permissões, vínculo com as versões
+ * publicadas do Registry e etapas roteadas — tudo na mesma transação do banco.
+ */
+export const criarExecucao = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        chatId: uuid.nullable().default(null),
+        formato,
+      })
+      .strict()
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { modo, permissoes } = await contextoDeCriacao(context, data.chatId);
     const { data: id, error } = await context.supabase.rpc("criar_execucao", {
       _chat_id: data.chatId as string,
       _formato: data.formato,
@@ -121,6 +133,41 @@ export const criarExecucao = createServerFn({ method: "POST" })
     });
     if (error) erro(error.message);
     return { id: id as string, modo };
+  });
+
+/**
+ * Criação idempotente e atômica a partir do briefing enviado no chat.
+ * O cliente informa apenas chat e mensagem: usuário, número de reexecução e a
+ * chave da trava são derivados no servidor, dentro de uma única transação.
+ */
+export const criarExecucaoParaMensagem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ chatId: uuid, mensagemId: uuid, formato, reexecutar: z.boolean().default(false) })
+      .strict()
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { modo, permissoes } = await contextoDeCriacao(context, data.chatId);
+    const { data: resposta, error } = await context.supabase.rpc("criar_execucao_para_mensagem", {
+      _chat_id: data.chatId,
+      _mensagem_id: data.mensagemId,
+      _formato: data.formato,
+      _snapshot_marca: {},
+      _snapshot_privacidade: { modo },
+      _modo_privacidade: modo,
+      _permissoes: permissoes as never,
+      _reexecutar: data.reexecutar,
+    });
+    if (error) erro(error.message);
+    const r = (resposta ?? {}) as { id?: string; criada?: boolean; reexecucao?: number };
+    return {
+      id: String(r.id),
+      criada: Boolean(r.criada),
+      reexecucao: Number(r.reexecucao ?? 0),
+      modo,
+    };
   });
 
 export const obterExecucao = createServerFn({ method: "GET" })
