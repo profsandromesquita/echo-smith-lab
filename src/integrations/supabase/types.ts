@@ -1397,6 +1397,10 @@ export type Database = {
         Args: { _desfecho: string; _etapa_id: string }
         Returns: string
       }
+      responder_complemento_briefing: {
+        Args: { _execucao_id: string; _mensagem_id: string }
+        Returns: Json
+      }
       revogar_consentimento: {
         Args: { _id: string; _origem: string }
         Returns: boolean
