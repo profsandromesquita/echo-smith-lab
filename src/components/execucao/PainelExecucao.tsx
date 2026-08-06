@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/collapsible";
 import { DetalhesTecnicos } from "@/components/execucao/DetalhesTecnicos";
 import { CuradoriaExecucao } from "@/components/execucao/CuradoriaExecucao";
+import { ComplementoBriefing } from "@/components/execucao/ComplementoBriefing";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { IndicadorProcessamento } from "@/components/privacy/Indicadores";
 import { PAPEL_LOCAL, ROTULO_PAPEL, type PapelAgente } from "@/lib/adaptadores-simulados";
@@ -380,17 +381,20 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         )}
 
         {/* Diretriz sempre derivada dos resultados desta execução. Sem texto de exemplo. */}
-        {gatekeeper && !gatekeeper['suficiente'] && (
-          <Alert>
-            <HelpCircle aria-hidden />
-            <AlertTitle>Aguardando complemento do briefing</AlertTitle>
-            <AlertDescription>
-              {String(
-                gatekeeper['pergunta_de_refinamento'] ??
-                  "Faltam informações essenciais no briefing.",
-              )}
-            </AlertDescription>
-          </Alert>
+        {estado === "aguardando_complemento" && (
+          <ComplementoBriefing
+            execucaoId={execucaoId}
+            pergunta={String(
+              gatekeeper?.['pergunta_de_refinamento'] ??
+                "Faltam informações essenciais no briefing.",
+            )}
+            lacunas={
+              Array.isArray(gatekeeper?.['lacunas'])
+                ? (gatekeeper['lacunas'] as string[])
+                : []
+            }
+            aoResponder={invalidar}
+          />
         )}
 
         {gatekeeper?.['suficiente'] === true && (
