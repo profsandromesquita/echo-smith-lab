@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CartaoVariacao } from "@/components/pipeline/CartaoVariacao";
 import { DiffAdaptacao } from "@/components/pipeline/DiffAdaptacao";
-import { PainelRanking } from "@/components/pipeline/PainelCuradoria";
 import { LinhaDoTempoPipeline } from "@/components/pipeline/LinhaDoTempoPipeline";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { AvisoRotuloHonesto } from "@/components/privacy/Indicadores";
@@ -40,11 +39,29 @@ function mapa(parcial: Partial<MapaStatus>, padrao: StatusEtapa = "pendente"): M
   return { ...base, ...parcial };
 }
 
+/**
+ * Resultados do chat. A curadoria exibida vem sempre da execução real
+ * (`PainelExecucao` → `CuradoriaExecucao`). Os cenários simulados da F0
+ * seguem disponíveis apenas em desenvolvimento.
+ */
 export function AreaResultados({ chatId = null }: { chatId?: string | null }) {
   return (
     <div className="space-y-4">
-      {chatId && <PainelExecucao chatId={chatId} />}
-      <ConteudoDemo chatId={chatId} />
+      {chatId ? <PainelExecucao chatId={chatId} /> : <EstadoVazio />}
+      {import.meta.env.DEV && <ConteudoDemo chatId={chatId} />}
+    </div>
+  );
+}
+
+function EstadoVazio() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
+      <Sparkles className="mb-3 size-6 text-primary" aria-hidden />
+      <h2 className="font-display text-lg">Comece pelo briefing</h2>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Descreva o tema, o público e a promessa. Escolha os formatos na barra de parâmetros e a
+        plataforma monta o pacote auditado.
+      </p>
     </div>
   );
 }
@@ -69,16 +86,7 @@ function ConteudoDemo({ chatId = null }: { chatId?: string | null }) {
 
   switch (estado) {
     case "vazio":
-      return (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
-          <Sparkles className="mb-3 size-6 text-primary" aria-hidden />
-          <h2 className="font-display text-lg">Comece pelo briefing</h2>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Descreva o tema, o público e a promessa. Escolha os formatos na barra de parâmetros e a
-            plataforma monta o pacote auditado.
-          </p>
-        </div>
-      );
+      return <EstadoVazio />;
 
     case "briefing_insuficiente":
       return (
@@ -253,34 +261,9 @@ function ConteudoDemo({ chatId = null }: { chatId?: string | null }) {
         </Alert>
       );
 
+    // A entrega real é exibida pela curadoria da execução, nunca por dados simulados.
     case "entregue":
     default:
-      return (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-display text-lg">Curadoria final</h2>
-            <p className="text-xs text-muted-foreground">
-              5 variações por formato · 3 entregues após auditoria e ranking
-            </p>
-          </div>
-          <div className="grid gap-3">
-            {VARIACOES.map((v) => (
-              <CartaoVariacao key={v.id} variacao={v} />
-            ))}
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PainelRanking />
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Etapas desta execução</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LinhaDoTempoPipeline status={mapa({}, "concluida")} />
-              </CardContent>
-            </Card>
-          </div>
-          <AvisoRotuloHonesto />
-        </div>
-      );
+      return null;
   }
 }

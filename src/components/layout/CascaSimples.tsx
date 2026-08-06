@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MenuConta } from "@/components/layout/MenuConta";
+import { NavConfig } from "@/components/layout/NavConfig";
 import { DemoProvider } from "@/lib/demo-state";
 
 /** Casca das páginas fora do workspace (configurações, admin, onboarding). */
@@ -20,6 +21,7 @@ export function CascaSimples({ children }: { children: ReactNode }) {
           <span className="ml-auto font-display text-sm font-semibold">Copyforja</span>
           <MenuConta />
         </header>
+        <NavConfig />
         {children}
       </div>
     </DemoProvider>

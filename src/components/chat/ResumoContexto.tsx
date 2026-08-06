@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SeloIaLocal } from "@/components/privacy/Indicadores";
@@ -34,6 +35,12 @@ export function ResumoContexto({ chatId = null }: { chatId?: string | null }) {
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Voz de marca</p>
           <p className="mt-0.5">{marca}</p>
           <p className="text-[11px] text-muted-foreground">{origem}</p>
+          <Link
+            to="/config/voz-de-marca"
+            className="mt-1 inline-block text-[11px] text-primary underline underline-offset-2"
+          >
+            {data?.perfil ? "Gerenciar vozes de marca" : "Criar voz de marca"}
+          </Link>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -45,9 +52,7 @@ export function ResumoContexto({ chatId = null }: { chatId?: string | null }) {
           </p>
         </div>
         <div>
-          <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-            IA local
-          </p>
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">IA local</p>
           <SeloIaLocal />
         </div>
       </PopoverContent>
