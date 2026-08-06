@@ -80,7 +80,10 @@ export function AcoesFeedback({
 
   const salvarEdicao = () => {
     const limpo = rascunho.trim();
-    if (!limpo) return toast.error("O texto editado não pode ficar vazio.");
+    if (!limpo) {
+      toast.error("O texto editado não pode ficar vazio.");
+      return;
+    }
     captura.salvarEdicao.mutate({
       execucaoId,
       itemId,
@@ -97,10 +100,12 @@ export function AcoesFeedback({
       captura.apagarReferencia.mutate({ itemId });
       return;
     }
-    if (!perfilMarcaId)
-      return toast.error(
+    if (!perfilMarcaId) {
+      toast.error(
         "Selecione ou crie uma voz de marca antes de guardar um exemplo de referência.",
       );
+      return;
+    }
     captura.salvarReferencia.mutate({
       execucaoId,
       itemId,
