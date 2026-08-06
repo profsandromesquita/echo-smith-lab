@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
-import { Workspace } from "@/components/chat/Workspace";
+import { Workspace, type FormatoExecucao } from "@/components/chat/Workspace";
 import { Button } from "@/components/ui/button";
 import { enviarMensagem } from "@/lib/historico.functions";
 import { horario, opcoesChat } from "@/lib/historico";
-import { RESPOSTA_SIMULADA } from "@/lib/fixtures";
+import { criarExecucaoParaMensagem } from "@/lib/execucao.functions";
+import { chavesExecucao } from "@/lib/execucao";
 
 const TITULO = "Chat de criação — Copyforja";
 const DESCRICAO =
@@ -32,15 +33,18 @@ function Pagina() {
   const consulta = useQuery(opcoesChat(chatId));
 
   const envio = useMutation({
-    mutationFn: async (texto: string) => {
-      await enviarMensagem({ data: { chatId, texto, autor: "usuario" } });
-      // A resposta segue simulada, mas é persistida para reaparecer ao recarregar.
-      await enviarMensagem({
-        data: { chatId, texto: RESPOSTA_SIMULADA, autor: "plataforma" },
+    mutationFn: async (v: { texto: string; formato: FormatoExecucao }) => {
+      const mensagem = await enviarMensagem({
+        data: { chatId, texto: v.texto, autor: "usuario" },
+      });
+      // Idempotente no servidor: reenvio do mesmo briefing não duplica execução.
+      await criarExecucaoParaMensagem({
+        data: { chatId, mensagemId: mensagem.id, formato: v.formato },
       });
     },
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: ["historico"] });
+      void cliente.invalidateQueries({ queryKey: chavesExecucao.raiz });
     },
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : "Não foi possível enviar a mensagem."),
@@ -91,7 +95,7 @@ function Pagina() {
         mensagens={mensagens}
         carregando={consulta.isLoading}
         enviando={envio.isPending}
-        onEnviar={(texto) => envio.mutate(texto)}
+        onEnviar={(texto, formato) => envio.mutate({ texto, formato })}
       />
     </AppShell>
   );

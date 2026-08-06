@@ -10,13 +10,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DetalhesTecnicos } from "@/components/execucao/DetalhesTecnicos";
 import { CuradoriaExecucao } from "@/components/execucao/CuradoriaExecucao";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
@@ -34,7 +27,7 @@ import {
 import {
   avancarExecucao,
   cancelarExecucao,
-  criarExecucao,
+  criarExecucaoParaMensagem,
   resolverIncerto,
 } from "@/lib/execucao.functions";
 import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
@@ -60,14 +53,6 @@ const CORES: Record<EstadoEtapa, string> = {
   cancelada: "border-muted-foreground text-muted-foreground",
   resultado_incerto: "border-uncertain text-uncertain",
 };
-
-const FORMATOS: Array<{ valor: string; rotulo: string }> = [
-  ...(Object.keys(ROTULO_FORMATO) as FormatoSaida[]).map((f) => ({
-    valor: f,
-    rotulo: ROTULO_FORMATO[f],
-  })),
-  { valor: "pacote_completo", rotulo: "Pacote completo" },
-];
 
 const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento", "resultado_incerto"];
 
@@ -133,8 +118,8 @@ const DETALHE_CATEGORIA: Record<
 
 export function PainelExecucao({ chatId }: { chatId: string }) {
   const cliente = useQueryClient();
-  const [formato, setFormato] = useState<string>("hook");
   const [autorizando, setAutorizando] = useState(false);
+  const [confirmandoReexecucao, setConfirmandoReexecucao] = useState(false);
   const avancando = useRef(false);
 
   const ativa = useQuery(opcoesExecucaoAtiva(chatId));
@@ -145,9 +130,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
     await cliente.invalidateQueries({ queryKey: chavesExecucao.raiz });
   };
 
-  const criar = useMutation({
-    mutationFn: () => criarExecucao({ data: { chatId, formato: formato as never } }),
-    onSuccess: invalidar,
+  const reexecutar = useMutation({
+    mutationFn: (v: { mensagemId: string; formato: string }) =>
+      criarExecucaoParaMensagem({
+        data: { chatId, mensagemId: v.mensagemId, formato: v.formato as never, reexecutar: true },
+      }),
+    onSuccess: async () => {
+      setConfirmandoReexecucao(false);
+      await invalidar();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -176,9 +167,15 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   const etapas = detalhe.data?.etapas ?? [];
   const resultados = detalhe.data?.resultados ?? [];
 
-  const gatekeeper = resultados
-    .map((r) => (r.payload ?? {}) as Record<string, unknown>)
-    .find((p) => p['campo'] === "gatekeeper");
+  const cargas = resultados.map((r) => (r.payload ?? {}) as Record<string, unknown>);
+  const gatekeeper = cargas.find((p) => p['campo'] === "gatekeeper");
+  const diretriz = cargas.find((p) => p['campo'] === "diretriz_estrategica");
+
+  const snapshotChat = (detalhe.data?.execucao.snapshot_chat ?? {}) as Record<string, unknown>;
+  const mensagemDaExecucao =
+    typeof snapshotChat['mensagem_id'] === "string" ? snapshotChat['mensagem_id'] : null;
+  const formatoDaExecucao = detalhe.data?.execucao.formato_solicitado ?? "hook";
+  const etapaPsicologia = etapas.find((e) => e.papel === "analise_psicologica");
 
   // O avanço exige esta aba aberta: não há processo de fundo no servidor.
   useEffect(() => {
@@ -205,25 +202,11 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Execução do pipeline</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <Select value={formato} onValueChange={setFormato}>
-            <SelectTrigger className="w-56" aria-label="Formato da execução">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FORMATOS.map((f) => (
-                <SelectItem key={f.valor} value={f.valor}>
-                  {f.rotulo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>
-            Iniciar execução
-          </Button>
-          <p className="w-full text-xs text-muted-foreground">
-            Os agentes desta execução rodam nos provedores em nuvem fixados no Registry. Cada
-            etapa só é chamada com o consentimento que você autorizar.
+        <CardContent>
+          <p className="text-xs text-muted-foreground">
+            Nenhuma execução ainda neste chat. Escolha o formato e envie o briefing para gerar o
+            pacote: os agentes rodam nos provedores em nuvem fixados no Registry e cada etapa só é
+            chamada com o consentimento que você autorizar.
           </p>
         </CardContent>
       </Card>
@@ -265,15 +248,55 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
               Retomar
             </Button>
           )}
-          {encerrada && (
-            <Button size="sm" variant="outline" onClick={() => criar.mutate()}>
-              Nova execução
+          {encerrada && mensagemDaExecucao && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmandoReexecucao(true)}
+              disabled={reexecutar.isPending}
+            >
+              Executar novamente
             </Button>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {confirmandoReexecucao && mensagemDaExecucao && (
+          <Alert>
+            <TriangleAlert aria-hidden />
+            <AlertTitle>Executar novamente gera novo custo</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>
+                Uma nova execução do mesmo briefing chama os provedores outra vez e é cobrada de
+                novo. A execução anterior e seus resultados continuam salvos.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    reexecutar.mutate({
+                      mensagemId: mensagemDaExecucao,
+                      formato: formatoDaExecucao,
+                    })
+                  }
+                  disabled={reexecutar.isPending}
+                >
+                  Confirmar e executar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmandoReexecucao(false)}
+                  disabled={reexecutar.isPending}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {bloqueadas.length > 0 && (
           <Alert>
             <Lock aria-hidden />
@@ -356,21 +379,62 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
           </Alert>
         )}
 
-        {gatekeeper && (
+        {/* Diretriz sempre derivada dos resultados desta execução. Sem texto de exemplo. */}
+        {gatekeeper && !gatekeeper['suficiente'] && (
           <Alert>
             <HelpCircle aria-hidden />
-            <AlertTitle>
-              {gatekeeper['suficiente'] ? "Briefing suficiente" : "Aguardando complemento"}
-            </AlertTitle>
+            <AlertTitle>Aguardando complemento do briefing</AlertTitle>
             <AlertDescription>
-              {gatekeeper['suficiente']
-                ? String(gatekeeper['resumo'] ?? "Briefing estruturado pronto para as próximas etapas.")
-                : String(
-                    gatekeeper['pergunta_de_refinamento'] ??
-                      "Faltam informações essenciais no briefing.",
-                  )}
+              {String(
+                gatekeeper['pergunta_de_refinamento'] ??
+                  "Faltam informações essenciais no briefing.",
+              )}
             </AlertDescription>
           </Alert>
+        )}
+
+        {gatekeeper?.['suficiente'] === true && (
+          <div className="rounded-lg border-l-2 border-primary/60 bg-muted/40 px-3 py-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Diretriz estratégica
+            </p>
+            {diretriz ? (
+              <>
+                <p className="mt-0.5 text-sm">{String(diretriz['texto'] ?? "")}</p>
+                <dl className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                  {(
+                    [
+                      ["Conflito inconsciente", diretriz['conflito_inconsciente']],
+                      ["Medo central", diretriz['medo_central']],
+                      ["Desejo central", diretriz['desejo_central']],
+                      ["Objeção provável", diretriz['objecao_provavel']],
+                    ] as const
+                  )
+                    .filter(([, v]) => typeof v === "string" && v)
+                    .map(([rotulo, v]) => (
+                      <div key={rotulo}>
+                        <dt className="inline font-medium">{rotulo}: </dt>
+                        <dd className="inline">{String(v)}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </>
+            ) : etapaPsicologia?.estado === "falhou" ||
+              etapaPsicologia?.estado === "cancelada" ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A análise psicológica desta execução não concluiu. Nenhuma diretriz foi produzida.
+              </p>
+            ) : etapaPsicologia?.estado === "bloqueada" ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A análise psicológica está bloqueada até você autorizar o envio ao provedor.
+              </p>
+            ) : (
+              <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Analisando o briefing desta execução…
+              </p>
+            )}
+          </div>
         )}
 
         <ol className="space-y-1">

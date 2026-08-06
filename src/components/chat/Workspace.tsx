@@ -1,10 +1,29 @@
+import { useState } from "react";
 import { Thread, type MensagemChat } from "@/components/chat/Thread";
 import { Composer } from "@/components/chat/Composer";
 import { AreaResultados } from "@/components/chat/AreaResultados";
 import { ResumoContexto } from "@/components/chat/ResumoContexto";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDemo, type EstadoDemo } from "@/lib/demo-state";
+import { ROTULO_FORMATO, type FormatoSaida } from "@/lib/fixtures";
+
+export type FormatoExecucao = FormatoSaida | "pacote_completo";
+
+const FORMATOS: Array<{ valor: FormatoExecucao; rotulo: string }> = [
+  ...(Object.keys(ROTULO_FORMATO) as FormatoSaida[]).map((f) => ({
+    valor: f as FormatoExecucao,
+    rotulo: ROTULO_FORMATO[f],
+  })),
+  { valor: "pacote_completo", rotulo: "Pacote completo" },
+];
 
 const STATUS_PRINCIPAL: Record<EstadoDemo, string> = {
   vazio: "Aguardando briefing",
@@ -32,12 +51,13 @@ export function Workspace({
   /** Chat atual. Sem valor, a voz de marca resolvida é a padrão da conta. */
   chatId?: string | null;
   mensagens: MensagemChat[];
-  onEnviar: (texto: string) => void | Promise<void>;
+  onEnviar: (texto: string, formato: FormatoExecucao) => void | Promise<void>;
   enviando?: boolean;
   carregando?: boolean;
 }) {
   const { estado, offline } = useDemo();
   const status = offline ? "Sem conexão" : STATUS_PRINCIPAL[estado];
+  const [formato, setFormato] = useState<FormatoExecucao>("hook");
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-5">
@@ -49,6 +69,23 @@ export function Workspace({
           </Badge>
         </div>
         <ResumoContexto chatId={chatId} />
+        <div className="mt-2 flex items-center gap-2">
+          <Select value={formato} onValueChange={(v) => setFormato(v as FormatoExecucao)}>
+            <SelectTrigger className="h-8 w-56 text-xs" aria-label="Formato do pacote">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMATOS.map((f) => (
+                <SelectItem key={f.valor} value={f.valor}>
+                  {f.rotulo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Enviar o briefing inicia a execução real nos provedores autorizados.
+          </p>
+        </div>
       </div>
 
       {carregando ? (
@@ -59,7 +96,7 @@ export function Workspace({
       ) : (
         <Thread mensagens={mensagens} />
       )}
-      <Composer onEnviar={onEnviar} enviando={enviando} />
+      <Composer onEnviar={(texto) => onEnviar(texto, formato)} enviando={enviando} />
       <AreaResultados chatId={chatId} />
     </div>
   );

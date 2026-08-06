@@ -2,9 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
-import { Workspace } from "@/components/chat/Workspace";
+import { Workspace, type FormatoExecucao } from "@/components/chat/Workspace";
 import { criarChat, enviarMensagem } from "@/lib/historico.functions";
-import { RESPOSTA_SIMULADA } from "@/lib/fixtures";
+import { criarExecucaoParaMensagem } from "@/lib/execucao.functions";
+import { chavesExecucao } from "@/lib/execucao";
 
 const TITULO = "Workspace — Copyforja";
 const DESCRICAO =
@@ -29,18 +30,19 @@ function Pagina() {
   const cliente = useQueryClient();
 
   const criacao = useMutation({
-    mutationFn: async (texto: string) => {
-      const chat = await criarChat({ data: { primeiraMensagem: texto } });
-      if (chat?.id) {
-        // Resposta ainda simulada, porém persistida como mensagem da conversa.
-        await enviarMensagem({
-          data: { chatId: chat.id, texto: RESPOSTA_SIMULADA, autor: "plataforma" },
+    mutationFn: async (v: { texto: string; formato: FormatoExecucao }) => {
+      const chat = await criarChat({ data: { primeiraMensagem: v.texto } });
+      // O briefing é o gatilho do pipeline real: a criação é idempotente por mensagem.
+      if (chat?.id && chat.mensagemId) {
+        await criarExecucaoParaMensagem({
+          data: { chatId: chat.id, mensagemId: chat.mensagemId, formato: v.formato },
         });
       }
       return chat;
     },
     onSuccess: (chat) => {
       void cliente.invalidateQueries({ queryKey: ["historico"] });
+      void cliente.invalidateQueries({ queryKey: chavesExecucao.raiz });
       if (chat?.id) void navegar({ to: "/app/c/$chatId", params: { chatId: chat.id } });
     },
     onError: (e) =>
@@ -53,7 +55,7 @@ function Pagina() {
         titulo="Novo chat"
         mensagens={[]}
         enviando={criacao.isPending}
-        onEnviar={(texto) => criacao.mutate(texto)}
+        onEnviar={(texto, formato) => criacao.mutate({ texto, formato })}
       />
     </AppShell>
   );

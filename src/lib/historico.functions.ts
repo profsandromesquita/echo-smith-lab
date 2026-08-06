@@ -96,19 +96,24 @@ export const criarChat = createServerFn({ method: "POST" })
     if (error || !chat) erro(error?.message ?? "Não foi possível criar o chat.");
 
     if (data.primeiraMensagem) {
-      const { error: erroMensagem } = await context.supabase.from("mensagens").insert({
-        user_id: context.userId,
-        chat_id: chat.id,
-        autor: "usuario",
-        texto: data.primeiraMensagem,
-      });
-      if (erroMensagem) {
+      const { data: mensagem, error: erroMensagem } = await context.supabase
+        .from("mensagens")
+        .insert({
+          user_id: context.userId,
+          chat_id: chat.id,
+          autor: "usuario",
+          texto: data.primeiraMensagem,
+        })
+        .select("id")
+        .single();
+      if (erroMensagem || !mensagem) {
         await context.supabase.from("chats").delete().eq("id", chat.id);
-        erro(erroMensagem.message);
+        erro(erroMensagem?.message ?? "Não foi possível registrar o briefing.");
       }
+      return { ...chat, mensagemId: mensagem.id as string };
     }
 
-    return chat;
+    return { ...chat, mensagemId: null as string | null };
   });
 
 export const renomearChat = createServerFn({ method: "POST" })
