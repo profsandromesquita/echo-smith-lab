@@ -940,6 +940,7 @@ export const avancarExecucao = createServerFn({ method: "POST" })
           vozAutorizada,
           etapaId: etapa.etapa_id,
           tentativa: etapa.tentativa,
+          chatId: execucao?.chat_id ?? null,
           alvo: etapa.papel === "auditoria_final" ? "corrigida" : "original",
         });
 
