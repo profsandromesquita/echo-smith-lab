@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CartaoVariacao } from "@/components/pipeline/CartaoVariacao";
 import { DiffAdaptacao } from "@/components/pipeline/DiffAdaptacao";
-import { PainelRanking } from "@/components/pipeline/PainelCuradoria";
 import { LinhaDoTempoPipeline } from "@/components/pipeline/LinhaDoTempoPipeline";
 import { ModalConsentimento } from "@/components/privacy/ModalConsentimento";
 import { AvisoRotuloHonesto } from "@/components/privacy/Indicadores";
@@ -40,11 +39,29 @@ function mapa(parcial: Partial<MapaStatus>, padrao: StatusEtapa = "pendente"): M
   return { ...base, ...parcial };
 }
 
+/**
+ * Resultados do chat. A curadoria exibida vem sempre da execução real
+ * (`PainelExecucao` → `CuradoriaExecucao`). Os cenários simulados da F0
+ * seguem disponíveis apenas em desenvolvimento.
+ */
 export function AreaResultados({ chatId = null }: { chatId?: string | null }) {
   return (
     <div className="space-y-4">
-      {chatId && <PainelExecucao chatId={chatId} />}
-      <ConteudoDemo chatId={chatId} />
+      {chatId ? <PainelExecucao chatId={chatId} /> : <EstadoVazio />}
+      {import.meta.env.DEV && <ConteudoDemo chatId={chatId} />}
+    </div>
+  );
+}
+
+function EstadoVazio() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
+      <Sparkles className="mb-3 size-6 text-primary" aria-hidden />
+      <h2 className="font-display text-lg">Comece pelo briefing</h2>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Descreva o tema, o público e a promessa. Escolha os formatos na barra de parâmetros e a
+        plataforma monta o pacote auditado.
+      </p>
     </div>
   );
 }
@@ -69,16 +86,7 @@ function ConteudoDemo({ chatId = null }: { chatId?: string | null }) {
 
   switch (estado) {
     case "vazio":
-      return (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-16 text-center">
-          <Sparkles className="mb-3 size-6 text-primary" aria-hidden />
-          <h2 className="font-display text-lg">Comece pelo briefing</h2>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Descreva o tema, o público e a promessa. Escolha os formatos na barra de parâmetros e a
-            plataforma monta o pacote auditado.
-          </p>
-        </div>
-      );
+      return <EstadoVazio />;
 
     case "briefing_insuficiente":
       return (
