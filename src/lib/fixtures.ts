@@ -225,13 +225,6 @@ export const SINAIS_RANKING = [
   { nome: "Confiança da avaliação", peso: 0.08, valor: 8.0 },
 ];
 
-/**
- * Resposta da plataforma ainda simulada (o pipeline entra em fase posterior).
- * O texto é persistido como mensagem para reaparecer ao recarregar a conversa.
- */
-export const RESPOSTA_SIMULADA =
-  "Briefing suficiente. Conflito inconsciente identificado: medo do julgamento disfarçado de falta de tempo. Diretriz compartilhada com os especialistas.";
-
 export interface PreferenciaItem {
   id: string;
   regra: string;
