@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { AcoesFeedback } from "@/components/execucao/AcoesFeedback";
+import { AutorizacaoFeedback } from "@/components/execucao/AutorizacaoFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +11,9 @@ import {
 } from "@/components/ui/collapsible";
 import { ROTULO_PAPEL, type PapelAgente } from "@/lib/adaptadores-simulados";
 import { ROTULO_FATOR, type FatoresRanking } from "@/lib/ranking";
+import { useCapturaFeedback } from "@/hooks/useCapturaFeedback";
+import { AVISO_HIBRIDO, AVISO_LOCAL } from "@/lib/feedback";
+import { opcoesPerfilAtivo } from "@/lib/marca";
 
 export interface ResultadoExecucao {
   id: string;
@@ -23,8 +29,20 @@ function obj(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
 
-/** Curadoria real da execução simulada: entrega, correção única e itens fora da curadoria. */
-export function CuradoriaExecucao({ resultados }: { resultados: ResultadoExecucao[] }) {
+/** Curadoria real da execução: entrega, captura de feedback e itens fora da curadoria. */
+export function CuradoriaExecucao({
+  resultados,
+  chatId,
+  execucaoId,
+}: {
+  resultados: ResultadoExecucao[];
+  chatId: string;
+  execucaoId: string | null;
+}) {
+  const captura = useCapturaFeedback(execucaoId, chatId);
+  const perfilAtivo = useQuery(opcoesPerfilAtivo(chatId));
+  const perfil = perfilAtivo.data?.perfil ?? null;
+
   const entrega = resultados.find((r) => r.tipo === "entrega");
   if (!entrega) return null;
 
@@ -59,6 +77,14 @@ export function CuradoriaExecucao({ resultados }: { resultados: ResultadoExecuca
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {captura.precisaAutorizar ? (
+          <AutorizacaoFeedback captura={captura} />
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {captura.local ? AVISO_LOCAL : AVISO_HIBRIDO}
+          </p>
+        )}
+
         {entregues.map((item) => {
           const id = String(item['id'] ?? "");
           const papel = String(item['papel'] ?? "") as PapelAgente;
@@ -98,6 +124,20 @@ export function CuradoriaExecucao({ resultados }: { resultados: ResultadoExecuca
                   )}
                 </CollapsibleContent>
               </Collapsible>
+
+              {execucaoId && id && (
+                <AcoesFeedback
+                  captura={captura}
+                  execucaoId={execucaoId}
+                  itemId={id}
+                  resultadoId={entrega.id}
+                  perfilMarcaId={perfil?.id ?? null}
+                  perfilNome={perfil?.nome ?? null}
+                  formato={String(p['formato'] ?? "")}
+                  papel={papel}
+                  texto={String(item['texto'] ?? "")}
+                />
+              )}
             </div>
           );
         })}
