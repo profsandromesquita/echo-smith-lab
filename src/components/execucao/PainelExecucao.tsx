@@ -248,15 +248,55 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
               Retomar
             </Button>
           )}
-          {encerrada && (
-            <Button size="sm" variant="outline" onClick={() => criar.mutate()}>
-              Nova execução
+          {encerrada && mensagemDaExecucao && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmandoReexecucao(true)}
+              disabled={reexecutar.isPending}
+            >
+              Executar novamente
             </Button>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {confirmandoReexecucao && mensagemDaExecucao && (
+          <Alert>
+            <TriangleAlert aria-hidden />
+            <AlertTitle>Executar novamente gera novo custo</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>
+                Uma nova execução do mesmo briefing chama os provedores outra vez e é cobrada de
+                novo. A execução anterior e seus resultados continuam salvos.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    reexecutar.mutate({
+                      mensagemId: mensagemDaExecucao,
+                      formato: formatoDaExecucao,
+                    })
+                  }
+                  disabled={reexecutar.isPending}
+                >
+                  Confirmar e executar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmandoReexecucao(false)}
+                  disabled={reexecutar.isPending}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {bloqueadas.length > 0 && (
           <Alert>
             <Lock aria-hidden />
