@@ -18,6 +18,7 @@ import {
 import { executarAnalisePsicologica, type SaidaPsicologia } from "@/lib/agentes/psicologia.server";
 import { USO_ZERO, type CodigoErroProvedor, type NivelEsforco, type UsoProvedor } from "@/lib/provedores/tipos";
 import { lerVersaoDaEtapa } from "@/lib/agentes/registry-etapa.server";
+import { resolverPerfilDeMarca } from "@/lib/agentes/especialista-etapa.server";
 import type { FatoresRanking } from "@/lib/ranking";
 
 type Cliente = SupabaseClient<Database>;
@@ -221,6 +222,8 @@ export async function executarEtapaAuditor(
     vozAutorizada: boolean;
     etapaId: string;
     tentativa: number;
+    /** Chat da execução: necessário para resolver o mesmo perfil que os especialistas leram. */
+    chatId?: string | null;
     /** original = variações geradas; corrigida = textos que passaram pela correção única. */
     alvo?: "original" | "corrigida";
     sinal?: AbortSignal;
@@ -254,11 +257,8 @@ export async function executarEtapaAuditor(
 
   let vozMarca: ContextoAuditoria["vozMarca"] = null;
   if (args.vozAutorizada) {
-    const { data: perfil } = await supabase
-      .from("perfis_marca")
-      .select("nome, tom_de_voz, posicionamento")
-      .eq("padrao", true)
-      .maybeSingle();
+    // mesma cadeia dos especialistas: override do chat, pasta, padrão da conta
+    const { perfil } = await resolverPerfilDeMarca(supabase, args.chatId ?? null);
     vozMarca = perfil ?? null;
   }
 

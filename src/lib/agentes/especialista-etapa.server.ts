@@ -101,6 +101,71 @@ export async function vozDeMarcaAutorizada(
 }
 
 /** Monta só o que foi autorizado: briefing, diretriz da etapa anterior e voz de marca. */
+/**
+ * Resolução canônica do perfil de Voz de Marca: override do chat, depois perfil
+ * da pasta, depois perfil padrão da conta. Usada por especialistas e Auditor para
+ * que ambos leiam exatamente o mesmo perfil. Só é chamada depois da autorização.
+ */
+export async function resolverPerfilDeMarca(
+  supabase: Cliente,
+  chatId: string | null,
+): Promise<{
+  origem: "chat" | "pasta" | "padrao" | "nenhum";
+  perfilId: string | null;
+  perfil: { nome: string; tom_de_voz: string | null; posicionamento: string | null } | null;
+}> {
+  let origem: "chat" | "pasta" | "padrao" | "nenhum" = "nenhum";
+  let perfilId: string | null = null;
+  let pastaId: string | null = null;
+
+  if (chatId) {
+    const { data: chat } = await supabase
+      .from("chats")
+      .select("perfil_marca_id, pasta_id")
+      .eq("id", chatId)
+      .maybeSingle();
+    if (chat?.perfil_marca_id) {
+      perfilId = chat.perfil_marca_id;
+      origem = "chat";
+    }
+    pastaId = chat?.pasta_id ?? null;
+  }
+
+  if (!perfilId && pastaId) {
+    const { data: pasta } = await supabase
+      .from("pastas")
+      .select("perfil_marca_id")
+      .eq("id", pastaId)
+      .maybeSingle();
+    if (pasta?.perfil_marca_id) {
+      perfilId = pasta.perfil_marca_id;
+      origem = "pasta";
+    }
+  }
+
+  if (!perfilId) {
+    const { data: padrao } = await supabase
+      .from("perfis_marca")
+      .select("id")
+      .eq("padrao", true)
+      .maybeSingle();
+    if (padrao?.id) {
+      perfilId = padrao.id;
+      origem = "padrao";
+    }
+  }
+
+  if (!perfilId) return { origem: "nenhum", perfilId: null, perfil: null };
+
+  const { data: perfil } = await supabase
+    .from("perfis_marca")
+    .select("nome, tom_de_voz, posicionamento")
+    .eq("id", perfilId)
+    .maybeSingle();
+
+  return { origem, perfilId, perfil: perfil ?? null };
+}
+
 export async function montarEntradaEspecialista(
   supabase: Cliente,
   args: {
@@ -143,41 +208,8 @@ export async function montarEntradaEspecialista(
 
   let vozMarca: EntradaEspecialista["vozMarca"] = null;
   if (args.vozAutorizada) {
-    let perfilId: string | null = null;
-    let pastaId: string | null = null;
-    if (args.chatId) {
-      const { data: chat } = await supabase
-        .from("chats")
-        .select("perfil_marca_id, pasta_id")
-        .eq("id", args.chatId)
-        .maybeSingle();
-      perfilId = chat?.perfil_marca_id ?? null;
-      pastaId = chat?.pasta_id ?? null;
-    }
-    if (!perfilId && pastaId) {
-      const { data: pasta } = await supabase
-        .from("pastas")
-        .select("perfil_marca_id")
-        .eq("id", pastaId)
-        .maybeSingle();
-      perfilId = pasta?.perfil_marca_id ?? null;
-    }
-    if (!perfilId) {
-      const { data: padrao } = await supabase
-        .from("perfis_marca")
-        .select("id")
-        .eq("padrao", true)
-        .maybeSingle();
-      perfilId = padrao?.id ?? null;
-    }
-    if (perfilId) {
-      const { data: perfil } = await supabase
-        .from("perfis_marca")
-        .select("nome, tom_de_voz, posicionamento")
-        .eq("id", perfilId)
-        .maybeSingle();
-      if (perfil) vozMarca = perfil;
-    }
+    const { perfil } = await resolverPerfilDeMarca(supabase, args.chatId);
+    if (perfil) vozMarca = perfil;
   }
 
   return {
