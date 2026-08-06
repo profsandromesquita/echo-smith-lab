@@ -261,34 +261,9 @@ function ConteudoDemo({ chatId = null }: { chatId?: string | null }) {
         </Alert>
       );
 
+    // A entrega real é exibida pela curadoria da execução, nunca por dados simulados.
     case "entregue":
     default:
-      return (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-display text-lg">Curadoria final</h2>
-            <p className="text-xs text-muted-foreground">
-              5 variações por formato · 3 entregues após auditoria e ranking
-            </p>
-          </div>
-          <div className="grid gap-3">
-            {VARIACOES.map((v) => (
-              <CartaoVariacao key={v.id} variacao={v} />
-            ))}
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PainelRanking />
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Etapas desta execução</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LinhaDoTempoPipeline status={mapa({}, "concluida")} />
-              </CardContent>
-            </Card>
-          </div>
-          <AvisoRotuloHonesto />
-        </div>
-      );
+      return null;
   }
 }
