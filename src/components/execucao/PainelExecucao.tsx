@@ -168,9 +168,12 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
   const etapas = detalhe.data?.etapas ?? [];
   const resultados = detalhe.data?.resultados ?? [];
 
+  // Sempre o resultado mais recente: um complemento reavalia o briefing e gera nova saída.
   const cargas = resultados.map((r) => (r.payload ?? {}) as Record<string, unknown>);
-  const gatekeeper = cargas.find((p) => p['campo'] === "gatekeeper");
-  const diretriz = cargas.find((p) => p['campo'] === "diretriz_estrategica");
+  const ultima = (campo: string) =>
+    cargas.slice().reverse().find((p) => p['campo'] === campo);
+  const gatekeeper = ultima("gatekeeper");
+  const diretriz = ultima("diretriz_estrategica");
 
   const snapshotChat = (detalhe.data?.execucao.snapshot_chat ?? {}) as Record<string, unknown>;
   const mensagemDaExecucao =
