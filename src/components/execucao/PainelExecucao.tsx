@@ -72,27 +72,63 @@ const FORMATOS: Array<{ valor: string; rotulo: string }> = [
 const ATIVOS: EstadoExecucao[] = ["pronta", "em_processamento", "resultado_incerto"];
 
 /** Texto exibido por categoria. Provedor e finalidade reais são derivados no servidor. */
-const DETALHE_CATEGORIA: Record<string, { provedor: string; etapa: string; finalidade: string }> = {
-  briefing: {
-    provedor: "Provedores em nuvem do Registry",
-    etapa: "Gatekeeper, análise psicológica, especialistas e auditoria",
-    finalidade: "Interpretar o briefing e produzir as variações auditadas",
-  },
-  variacoes_para_auditoria: {
-    provedor: "Provedor de nuvem da auditoria",
-    etapa: "Auditoria e auditoria final",
-    finalidade: "Avaliar qualidade e conformidade das variações desta execução",
-  },
-  feedback_para_correcao: {
-    provedor: "Provedor de nuvem dos especialistas",
-    etapa: "Correção única",
-    finalidade: "Enviar as observações da auditoria para a correção única desta execução",
-  },
-  resumo_voz_marca_explicita: {
-    provedor: "Provedor de nuvem dos especialistas",
-    etapa: "Especialistas",
-    finalidade: "Adequar as variações ao perfil explícito de voz de marca",
-  },
+/**
+ * Cada categoria é apresentada por provedor: a autorização é sempre concedida a
+ * um provedor específico, nunca a "a nuvem" de forma genérica.
+ */
+const DETALHE_CATEGORIA: Record<
+  string,
+  Array<{
+    provedor: "openai" | "anthropic";
+    rotuloProvedor: string;
+    etapa: string;
+    finalidade: string;
+  }>
+> = {
+  briefing: [
+    {
+      provedor: "openai",
+      rotuloProvedor: "Provedor de nuvem A (OpenAI)",
+      etapa: "Gatekeeper e análise psicológica",
+      finalidade: "Interpretar o briefing e definir a diretriz estratégica",
+    },
+    {
+      provedor: "anthropic",
+      rotuloProvedor: "Provedor de nuvem B (Anthropic)",
+      etapa: "Especialistas",
+      finalidade: "Escrever as variações a partir do briefing aprovado",
+    },
+  ],
+  variacoes_para_auditoria: [
+    {
+      provedor: "openai",
+      rotuloProvedor: "Provedor de nuvem A (OpenAI)",
+      etapa: "Auditoria e auditoria final",
+      finalidade: "Avaliar qualidade e conformidade das variações desta execução",
+    },
+  ],
+  feedback_para_correcao: [
+    {
+      provedor: "anthropic",
+      rotuloProvedor: "Provedor de nuvem B (Anthropic)",
+      etapa: "Correção única",
+      finalidade: "Enviar as observações da auditoria para a correção única desta execução",
+    },
+  ],
+  resumo_voz_marca_explicita: [
+    {
+      provedor: "anthropic",
+      rotuloProvedor: "Provedor de nuvem B (Anthropic)",
+      etapa: "Especialistas",
+      finalidade: "Adequar as variações ao perfil explícito de voz de marca",
+    },
+    {
+      provedor: "openai",
+      rotuloProvedor: "Provedor de nuvem A (OpenAI)",
+      etapa: "Auditoria",
+      finalidade: "Considerar o perfil explícito de voz de marca ao auditar",
+    },
+  ],
 };
 
 export function PainelExecucao({ chatId }: { chatId: string }) {
@@ -204,7 +240,7 @@ export function PainelExecucao({ chatId }: { chatId: string }) {
         .map((e) => e.categoria_requerida)
         .filter((c): c is string => Boolean(c && DETALHE_CATEGORIA[c])),
     ),
-  ].map((c) => ({ categoria: c as never, ...DETALHE_CATEGORIA[c]! }));
+  ].flatMap((c) => DETALHE_CATEGORIA[c]!.map((d) => ({ categoria: c as never, ...d })));
   const encerrada = estado
     ? ["concluida", "parcialmente_concluida", "falhou", "cancelada"].includes(estado)
     : false;

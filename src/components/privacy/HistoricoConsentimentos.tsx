@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { opcoesConsentimentos, ROTULO_CATEGORIA, ROTULO_ESCOPO } from "@/lib/privacidade";
+import {
+  opcoesConsentimentos,
+  ROTULO_CATEGORIA,
+  ROTULO_ESCOPO,
+  rotuloProvedor,
+} from "@/lib/privacidade";
 
 const ROTULO_ACAO: Record<string, string> = {
   concedido: "Autorizado",
@@ -41,7 +46,7 @@ export function HistoricoConsentimentos() {
           </Badge>
           <span className="font-medium">{ROTULO_CATEGORIA[h.categoria] ?? h.categoria}</span>
           <span className="text-muted-foreground">
-            {ROTULO_ESCOPO[h.escopo] ?? h.escopo} · {h.provedor} · {h.etapa} · termos v
+            {ROTULO_ESCOPO[h.escopo] ?? h.escopo} · {rotuloProvedor(h.provedor)} · {h.etapa} · termos v
             {h.termos_versao}
           </span>
         </li>

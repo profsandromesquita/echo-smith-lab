@@ -15,6 +15,12 @@ const categoria = z.enum([
 ]);
 const decisao = z.enum(["concedido", "recusado"]);
 const origem = z.enum(["modal", "configuracoes", "painel_chat", "sistema"]);
+/**
+ * Identidade canônica e estável de provedor, separada do rótulo de exibição.
+ * O cliente nunca envia texto livre aqui: autorização de um provedor jamais
+ * pode ser interpretada como autorização de outro.
+ */
+const provedorCanonico = z.enum(["openai", "anthropic"]);
 
 function erro(mensagem: string): never {
   throw new Error(mensagem);
@@ -25,7 +31,7 @@ const entradaDecisao = z
     escopo,
     escopoId: uuid.nullable(),
     categoria,
-    provedor: z.string().trim().min(1).max(60),
+    provedor: provedorCanonico,
     etapa: z.string().trim().min(1).max(60),
     finalidade: z.string().trim().min(1).max(200),
     decisao,
@@ -103,7 +109,7 @@ export const montarFotografiaSimulada = createServerFn({ method: "POST" })
             z
               .object({
                 categoria,
-                provedor: z.string().trim().min(1).max(60),
+                provedor: provedorCanonico,
                 etapa: z.string().trim().min(1).max(60),
                 finalidade: z.string().trim().min(1).max(200),
                 decisao,
@@ -150,7 +156,12 @@ export const autorizarExecucao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
-      .object({ execucaoId: uuid, categorias: z.array(categoria).min(1).max(8) })
+      .object({
+        execucaoId: uuid,
+        categorias: z.array(categoria).min(1).max(8),
+        /** Recorte por provedor. Ausente = todos os provedores das etapas exibidas. */
+        provedores: z.array(provedorCanonico).min(1).max(2).optional(),
+      })
       .strict()
       .parse(d),
   )
@@ -158,6 +169,7 @@ export const autorizarExecucao = createServerFn({ method: "POST" })
     const { data: r, error } = await context.supabase.rpc("autorizar_execucao", {
       _execucao_id: data.execucaoId,
       _categorias: data.categorias,
+      _provedores: data.provedores ?? (null as never),
     });
     if (error) erro("Não foi possível registrar essa autorização para a execução.");
     const saida = (r ?? {}) as { concedidas?: string[]; desbloqueadas?: number };
@@ -181,6 +193,7 @@ export const autorizarExecucaoPersistente = createServerFn({ method: "POST" })
         execucaoId: uuid,
         categorias: z.array(categoria).min(1).max(8),
         escopo: z.enum(["chat", "conta"]),
+        provedores: z.array(provedorCanonico).min(1).max(2).optional(),
       })
       .strict()
       .parse(d),
@@ -190,6 +203,7 @@ export const autorizarExecucaoPersistente = createServerFn({ method: "POST" })
       _execucao_id: data.execucaoId,
       _categorias: data.categorias,
       _escopo: data.escopo,
+      _provedores: data.provedores ?? (null as never),
     });
     if (error) erro("Não foi possível registrar essa autorização.");
     const saida = (r ?? {}) as { concedidas?: string[]; desbloqueadas?: number };

@@ -29,7 +29,10 @@ export interface PermissaoSolicitada {
     | "variacoes_para_auditoria"
     | "feedback_para_correcao"
     | "resumo_voz_marca_explicita";
-  provedor: string;
+  /** Identidade interna e estável, usada em toda decisão de autorização. */
+  provedor: "openai" | "anthropic";
+  /** Texto exibido ao usuário. Nunca chega ao servidor como autorização. */
+  rotuloProvedor: string;
   etapa: string;
   finalidade: string;
 }
@@ -48,39 +51,45 @@ const BLOQUEADAS_EM_LOCAL_ESTRITA = [
 export const PERMISSOES_PADRAO: PermissaoSolicitada[] = [
   {
     categoria: "briefing",
-    provedor: "Provedor de nuvem A",
+    provedor: "openai",
+    rotuloProvedor: "Provedor de nuvem A (OpenAI)",
     etapa: "Gatekeeper e análise psicológica",
     finalidade: "Interpretar o briefing e definir a diretriz estratégica",
   },
   {
     categoria: "resumo_voz_marca",
-    provedor: "Provedor de nuvem B",
+    provedor: "anthropic",
+    rotuloProvedor: "Provedor de nuvem B (Anthropic)",
     etapa: "Especialistas",
     finalidade: "Adequar as variações ao posicionamento da marca",
   },
   {
     categoria: "resumo_voz_marca_explicita",
-    provedor: "Provedor de nuvem B (Anthropic)",
+    provedor: "anthropic",
+    rotuloProvedor: "Provedor de nuvem B (Anthropic)",
     etapa: "Especialistas",
     finalidade:
       "Enviar apenas o perfil de Voz de Marca que você preencheu, sem memória local nem preferências inferidas",
   },
   {
     categoria: "texto_gerado",
-    provedor: "Provedor de nuvem A",
+    provedor: "openai",
+    rotuloProvedor: "Provedor de nuvem A (OpenAI)",
     etapa: "Auditoria",
     finalidade: "Auditar qualidade e conformidade das variações",
   },
   {
     categoria: "variacoes_para_auditoria",
-    provedor: "Provedor de nuvem A (OpenAI)",
+    provedor: "openai",
+    rotuloProvedor: "Provedor de nuvem A (OpenAI)",
     etapa: "Auditoria",
     finalidade:
       "Enviar ao provedor de nuvem A as variações escritas pelo provedor de nuvem B (Anthropic) para avaliação de qualidade e conformidade",
   },
   {
     categoria: "feedback_para_correcao",
-    provedor: "Provedor de nuvem B (Anthropic)",
+    provedor: "anthropic",
+    rotuloProvedor: "Provedor de nuvem B (Anthropic)",
     etapa: "Correção única",
     finalidade:
       "Enviar ao provedor de nuvem B as observações da auditoria feita pelo provedor de nuvem A, junto do texto reprovado, para uma única correção",
@@ -119,13 +128,20 @@ export function ModalConsentimento({
   const invalidar = () =>
     cliente.invalidateQueries({ queryKey: chavesPrivacidade.consentimentos });
 
+  const categoriasDisponiveis = () => [...new Set(disponiveis.map((p) => p.categoria))];
+  const provedoresDisponiveis = () => [...new Set(disponiveis.map((p) => p.provedor))];
+
   const persistir = useMutation({
     mutationFn: async (escopo: "conta" | "chat") => {
-      const categorias = [...new Set(disponiveis.map((p) => p.categoria))];
       if (execucaoId) {
         // Servidor persiste no escopo e libera só as etapas bloqueadas desta execução.
         return autorizarExecucaoPersistente({
-          data: { execucaoId, categorias, escopo },
+          data: {
+            execucaoId,
+            categorias: categoriasDisponiveis(),
+            escopo,
+            provedores: provedoresDisponiveis(),
+          },
         });
       }
       for (const p of disponiveis) {
@@ -188,7 +204,8 @@ export function ModalConsentimento({
         const r = await autorizarExecucao({
           data: {
             execucaoId,
-            categorias: [...new Set(disponiveis.map((p) => p.categoria))],
+            categorias: categoriasDisponiveis(),
+            provedores: provedoresDisponiveis(),
           },
         });
         await invalidar();
@@ -234,7 +251,7 @@ export function ModalConsentimento({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{ROTULO_CATEGORIA[p.categoria]}</span>
                 <Badge variant="outline" className="border-cloud/50 font-normal text-cloud">
-                  {p.provedor}
+                  {p.rotuloProvedor}
                 </Badge>
                 <span className="text-xs text-muted-foreground">{p.etapa}</span>
               </div>
