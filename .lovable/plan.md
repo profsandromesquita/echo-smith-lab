@@ -47,14 +47,19 @@ Confirmado, com duplicação: dois comandos concorrentes, um demonstrativo e um 
 4. Estados honestos, sem fallback: sem execução, estado vazio; gatekeeper concluído e psicologia pendente, "analisando conflito"; consentimento pendente, falha, cancelamento ou `resultado_incerto`, estado correspondente. Nenhum texto padrão substitui resultado ausente.
 5. Cache: ao criar nova execução, invalidar `chavesExecucao.ativaDoChat(chatId)` e `porId`; consultas chaveadas por `chatId` + `execucaoId`, com o painel remontado por `execucaoId` para não herdar cartão de execução ou chat anterior.
 6. **Mensagens simuladas legadas**: os registros permanecem no banco, intactos, para rastreabilidade. Na renderização, o `Thread` reconhece o conteúdo legado conhecido — comparação exata com a assinatura textual antiga **e** `autor === "plataforma"` — e não o exibe: nem como diretriz, nem como mensagem comum. Nenhuma heurística por palavra-chave, para não ocultar mensagem real. Esse conteúdo nunca é copiado para execução, nunca serve de fallback, e nenhuma mensagem real de plataforma é excluída ou escondida.
-7. **Idempotência da criação de execução** (sem alterar máquina de estados nem tabelas):
-   - o cliente envia apenas `chatId` + `mensagemId` do briefing; o servidor deriva a chave idempotente desses dois valores;
-   - antes de criar, o servidor procura execução do mesmo usuário/chat cujo `snapshot_chat` referencie aquele `mensagemId`: existindo em estado não terminal, **retoma** e devolve o mesmo `execucaoId`;
-   - o `mensagemId` passa a ser gravado dentro de `snapshot_chat` (campo jsonb já existente — sem migração);
-   - o botão fica desabilitado enquanto a mutação está pendente; duplo clique resolve na mesma execução;
+7. **Idempotência atômica da criação de execução** (sem nova tabela; função SQL `security definer` que envolve a criação já existente):
+   - o cliente envia apenas `chatId` + `mensagemId`. Usuário, número de reexecução e chave idempotente são derivados no servidor;
+   - tudo abaixo acontece **dentro de uma única transação**, nunca "consultar e depois criar":
+     1. valida que a mensagem existe, pertence a `auth.uid()` e ao `chatId` informado (caso contrário, rejeita);
+     2. adquire `pg_advisory_xact_lock(hashtextextended(auth.uid()::text || ':' || _chat_id::text || ':' || _mensagem_id::text, 0))` — lock canônico liberado automaticamente no fim da transação;
+     3. procura execução do usuário já vinculada àquela mensagem;
+     4. havendo execução não terminal, devolve o mesmo `execucaoId` sem criar nada;
+     5. não havendo, cria exatamente uma execução, reutilizando a lógica atual de `criar_execucao` (sem mudar máquina de estados);
+   - o vínculo com a mensagem é gravado em `snapshot_chat` (jsonb já existente — sem migração de schema), junto do número de reexecução;
+   - o botão fica desabilitado enquanto a mutação está pendente; duplo clique e duas abas resolvem na mesma execução;
    - reload durante a criação recupera a execução pela consulta de execução ativa do chat, sem criar outra;
-   - "Gerar pacote" e o botão do painel usam a mesma função idempotente, então não há execuções concorrentes para o mesmo briefing.
-8. **Botão do painel**: havendo execução ativa, mostra apenas progresso/cancelar. Só após estado terminal (concluída, parcial, falha ou cancelada) aparece **"Executar novamente"**, que exige clique explícito, avisa que pode gerar novo custo no provedor, cria execução nova vinculada ao mesmo briefing (mesma `mensagemId`, chave distinta por número de reexecução) e não altera a execução anterior.
+   - "Gerar pacote" e o botão do painel chamam a mesma função, então não há execuções concorrentes para o mesmo briefing.
+8. **Botão do painel**: havendo execução ativa, mostra apenas progresso/cancelar. Só após estado terminal (concluída, parcial, falha ou cancelada) aparece **"Executar novamente"**, com clique explícito e aviso de novo custo no provedor. O servidor, **dentro do mesmo advisory lock**, calcula o próximo número de reexecução a partir das execuções já vinculadas àquela mensagem e cria uma única execução nova; duas solicitações simultâneas não recebem o mesmo número nem duplicam. Cada reexecução fica explicitamente vinculada à mesma mensagem e preserva as anteriores intactas.
 
 Autoridade permanece no servidor: o frontend envia apenas `chatId`/`execucaoId`; papel, etapa e tentativa são resolvidos no servidor sob RLS por usuário.
 
@@ -82,6 +87,11 @@ E. Reload: conteúdo e horário idênticos, vindos do servidor.
 F. Execução aguardando consentimento: nenhuma diretriz antiga visível.
 G. Cancelamento/falha/resultado incerto: estado correspondente, sem promover conteúdo anterior.
 H. Duplo clique em "Gerar pacote": uma única execução criada.
+H2. 10 requisições concorrentes de "Gerar pacote" para a mesma mensagem: exatamente uma execução.
+H3. Duas abas enviando ao mesmo tempo: exatamente uma execução.
+H4. 10 requisições concorrentes de "Executar novamente": apenas uma nova execução, com número de reexecução único.
+H5. Mensagens diferentes do mesmo chat: execuções independentes.
+H6. Mensagem de outro chat ou de outra conta: rejeitada.
 I. Reload durante a criação: retoma a mesma execução, sem criar outra.
 J. Chat antigo com mensagem simulada: nada daquele texto é renderizado; a mensagem do usuário permanece.
 
