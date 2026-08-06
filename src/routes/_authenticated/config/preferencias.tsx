@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CascaSimples } from "@/components/layout/CascaSimples";
 import { PaginaConfig } from "@/components/layout/AppShell";
+import { MemoriaLocalEstilo } from "@/components/config/MemoriaLocalEstilo";
 import { PREFERENCIAS_EXPLICITAS, PREFERENCIAS_INFERIDAS } from "@/lib/fixtures";
 
 const TITULO = "Preferências de estilo — Copyforja";
@@ -78,6 +79,8 @@ function Pagina() {
             ))}
           </CardContent>
         </Card>
+
+        <MemoriaLocalEstilo />
 
         <Alert>
           <AlertTitle>Memória de estilo é deste dispositivo</AlertTitle>

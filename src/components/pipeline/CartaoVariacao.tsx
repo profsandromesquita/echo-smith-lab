@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Copy, GitCompare, Heart, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, GitCompare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -8,12 +8,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { DiffAdaptacao } from "@/components/pipeline/DiffAdaptacao";
 import { ROTULO_FORMATO, ROTULO_VERSAO, type Variacao, type OrigemVersao } from "@/lib/fixtures";
 import { cn } from "@/lib/utils";
@@ -74,38 +68,15 @@ export function CartaoVariacao({ variacao }: { variacao: Variacao }) {
               Copiar
             </Button>
             <Button
-              variant={variacao.favorita ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               className="h-8 px-2"
+              disabled={!podeComparar}
+              onClick={() => setComparando((v) => !v)}
             >
-              <Heart className="size-4" aria-hidden />
-              {variacao.favorita ? "Favoritada" : "Favoritar"}
+              <GitCompare className="size-4" aria-hidden />
+              Comparar versões
             </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" aria-label="Outras ações">
-                  <MoreHorizontal className="size-4" aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem
-                  disabled={!podeComparar}
-                  onSelect={() => setComparando((v) => !v)}
-                >
-                  <GitCompare className="size-4" aria-hidden />
-                  Comparar versões
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Pencil className="size-4" aria-hidden />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Trash2 className="size-4" aria-hidden />
-                  Descartar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             <CollapsibleTrigger className="group ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground underline-offset-2 hover:underline">
               Ver auditoria
@@ -145,26 +116,6 @@ export function CartaoVariacao({ variacao }: { variacao: Variacao }) {
               <DiffAdaptacao antes={primeira.texto} depois={ultima.texto} />
             )}
 
-            <div className="flex flex-wrap gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2"
-                disabled={!podeComparar}
-                onClick={() => setComparando((v) => !v)}
-              >
-                <GitCompare className="size-4" aria-hidden />
-                Comparar versões
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 px-2">
-                <Pencil className="size-4" aria-hidden />
-                Editar
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 px-2">
-                <Trash2 className="size-4" aria-hidden />
-                Descartar
-              </Button>
-            </div>
           </CollapsibleContent>
         </Collapsible>
       </CardContent>
