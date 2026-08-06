@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   executarAdaptadorSimulado,
@@ -42,7 +44,7 @@ function erro(mensagem: string): never {
  * Compartilhado pelos dois caminhos de criação; nada aqui decide estado.
  */
 async function contextoDeCriacao(
-  context: { supabase: SupabaseAutenticado; userId: string },
+  context: { supabase: SupabaseClient<Database>; userId: string },
   chatId: string | null,
 ) {
     const [prefs, chat, termos, consentimentos] = await Promise.all([
