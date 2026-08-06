@@ -1,53 +1,32 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
-
-type SupabaseAutenticado = SupabaseClient<Database>;
-
-/**
- * Persistência de feedback no modo Híbrido autorizado.
- *
- * Toda gravação exige consentimento vigente para esta finalidade. Nenhuma
- * destas funções envia dados a provedores de IA: elas só escrevem na conta
- * do próprio usuário, sob RLS.
- */
-
-const uuid = z.string().uuid();
-const itemId = z.string().trim().min(1).max(200);
-
-export const CATEGORIA_FEEDBACK = "preferencias_inferidas";
-export const ETAPA_FEEDBACK = "feedback";
-export const PROVEDOR_FEEDBACK = "simulado";
-const FINALIDADE =
-  "Guardar na sua conta o feedback, as edições e os exemplos de referência dos textos entregues";
-
-function erro(msg: string): never {
-  throw new Error(msg);
-}
+import { CATEGORIA_FEEDBACK, ETAPA_FEEDBACK, PROVEDOR_FEEDBACK } from "@/lib/feedback";
+import {
+  entradaDecisao,
+  entradaEdicaoFb,
+  entradaExecucao,
+  entradaFeedback,
+  entradaItem,
+  entradaReferenciaFb,
+} from "@/lib/feedback-schemas";
+import {
+  FINALIDADE_FEEDBACK,
+  consentimentoFeedback,
+  erroFb,
+  garantirConsentimentoFeedback,
+} from "@/lib/feedback-consentimento.server";
 
 /** Consentimento vigente de conta para guardar feedback no servidor. */
 export const autorizacaoFeedback = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase
-      .from("consentimentos")
-      .select("id, estado")
-      .eq("user_id", context.userId)
-      .eq("escopo", "conta")
-      .eq("categoria", CATEGORIA_FEEDBACK)
-      .eq("provedor", PROVEDOR_FEEDBACK)
-      .eq("etapa", ETAPA_FEEDBACK)
-      .maybeSingle();
-    return { autorizado: data?.estado === "concedido", finalidade: FINALIDADE };
+    const ok = await consentimentoFeedback(context.supabase, context.userId);
+    return { autorizado: ok, finalidade: FINALIDADE_FEEDBACK };
   });
 
 export const decidirAutorizacaoFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ decisao: z.enum(["concedido", "recusado"]) }).strict().parse(d),
-  )
+  .inputValidator((d: unknown) => entradaDecisao.parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.rpc("registrar_consentimento", {
       _escopo: "conta",
@@ -55,17 +34,17 @@ export const decidirAutorizacaoFeedback = createServerFn({ method: "POST" })
       _categoria: CATEGORIA_FEEDBACK,
       _provedor: PROVEDOR_FEEDBACK,
       _etapa: ETAPA_FEEDBACK,
-      _finalidade: FINALIDADE,
+      _finalidade: FINALIDADE_FEEDBACK,
       _decisao: data.decisao,
       _origem: "interface",
     });
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { autorizado: data.decisao === "concedido" };
   });
 
 export const listarFeedbackExecucao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ execucaoId: uuid }).strict().parse(d))
+  .inputValidator((d: unknown) => entradaExecucao.parse(d))
   .handler(async ({ context, data }) => {
     const [feedback, edicoes, referencias] = await Promise.all([
       context.supabase
@@ -117,24 +96,9 @@ export const listarFeedbackExecucao = createServerFn({ method: "GET" })
 
 export const salvarFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        execucaoId: uuid,
-        itemId,
-        resultadoId: uuid.nullable().default(null),
-        perfilMarcaId: uuid.nullable().default(null),
-        formato: z.string().trim().max(60).default(""),
-        papel: z.string().trim().max(60).default(""),
-        sinal: z.enum(["positivo", "negativo"]),
-        motivos: z.array(z.string().trim().max(60)).max(12).default([]),
-        comentario: z.string().trim().max(1000).default(""),
-      })
-      .strict()
-      .parse(d),
-  )
+  .inputValidator((d: unknown) => entradaFeedback.parse(d))
   .handler(async ({ context, data }) => {
-    await garantirConsentimento(context);
+    await garantirConsentimentoFeedback(context.supabase, context.userId);
     const { error } = await context.supabase.from("feedback_resultado").upsert(
       {
         user_id: context.userId,
@@ -150,40 +114,28 @@ export const salvarFeedback = createServerFn({ method: "POST" })
       },
       { onConflict: "user_id,execucao_id,item_id" },
     );
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
 export const removerFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ execucaoId: uuid, itemId }).strict().parse(d))
+  .inputValidator((d: unknown) => entradaItem.parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase
       .from("feedback_resultado")
       .delete()
       .eq("execucao_id", data.execucaoId)
       .eq("item_id", data.itemId);
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
 export const salvarEdicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        execucaoId: uuid,
-        itemId,
-        resultadoId: uuid.nullable().default(null),
-        perfilMarcaId: uuid.nullable().default(null),
-        textoOriginal: z.string().max(4000),
-        textoEditado: z.string().trim().min(1).max(4000),
-      })
-      .strict()
-      .parse(d),
-  )
+  .inputValidator((d: unknown) => entradaEdicaoFb.parse(d))
   .handler(async ({ context, data }) => {
-    await garantirConsentimento(context);
+    await garantirConsentimentoFeedback(context.supabase, context.userId);
     const { error } = await context.supabase.from("edicoes_resultado").upsert(
       {
         user_id: context.userId,
@@ -196,39 +148,28 @@ export const salvarEdicao = createServerFn({ method: "POST" })
       },
       { onConflict: "user_id,execucao_id,item_id" },
     );
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
 export const removerEdicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ execucaoId: uuid, itemId }).strict().parse(d))
+  .inputValidator((d: unknown) => entradaItem.parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase
       .from("edicoes_resultado")
       .delete()
       .eq("execucao_id", data.execucaoId)
       .eq("item_id", data.itemId);
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
 export const salvarReferencia = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        execucaoId: uuid,
-        itemId,
-        perfilMarcaId: uuid,
-        titulo: z.string().trim().max(120).default(""),
-        texto: z.string().trim().min(1).max(4000),
-      })
-      .strict()
-      .parse(d),
-  )
+  .inputValidator((d: unknown) => entradaReferenciaFb.parse(d))
   .handler(async ({ context, data }) => {
-    await garantirConsentimento(context);
+    await garantirConsentimentoFeedback(context.supabase, context.userId);
 
     const { data: existente } = await context.supabase
       .from("exemplos_marca")
@@ -247,13 +188,13 @@ export const salvarReferencia = createServerFn({ method: "POST" })
       execucao_id: data.execucaoId,
       item_id: data.itemId,
     });
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
 export const removerReferencia = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ execucaoId: uuid, itemId }).strict().parse(d))
+  .inputValidator((d: unknown) => entradaItem.parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase
       .from("exemplos_marca")
@@ -261,24 +202,7 @@ export const removerReferencia = createServerFn({ method: "POST" })
       .eq("execucao_id", data.execucaoId)
       .eq("item_id", data.itemId)
       .eq("origem", "feedback");
-    if (error) erro(error.message);
+    if (error) erroFb(error.message);
     return { ok: true };
   });
 
-/** Bloqueia qualquer gravação sem consentimento vigente para esta finalidade. */
-async function garantirConsentimento(context: {
-  supabase: SupabaseAutenticado;
-  userId: string;
-}) {
-  const { data } = await context.supabase
-    .from("consentimentos")
-    .select("estado")
-    .eq("user_id", context.userId)
-    .eq("escopo", "conta")
-    .eq("categoria", CATEGORIA_FEEDBACK)
-    .eq("provedor", PROVEDOR_FEEDBACK)
-    .eq("etapa", ETAPA_FEEDBACK)
-    .maybeSingle();
-  if (data?.estado !== "concedido")
-    erro("Autorização necessária para guardar feedback na sua conta.");
-}

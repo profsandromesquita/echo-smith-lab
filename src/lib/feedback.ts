@@ -127,3 +127,7 @@ export const AVISO_LOCAL =
 
 export const AVISO_HIBRIDO =
   "Seu feedback é guardado na sua conta, apenas para você. Ele não é enviado a provedores de IA nesta etapa.";
+/** Identidade do consentimento usado pela captura no modo híbrido autorizado. */
+export const CATEGORIA_FEEDBACK = "preferencias_inferidas";
+export const ETAPA_FEEDBACK = "feedback";
+export const PROVEDOR_FEEDBACK = "simulado";
